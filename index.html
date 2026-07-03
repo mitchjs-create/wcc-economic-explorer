@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Westminster Economic Data Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --magenta: #C0005A;
+  --magenta-dark: #960047;
+  --magenta-light: #f7e6ef;
+  --navy: #0E2841;
+  --teal: #1D5F7A;
+  --teal-light: #e6f2f7;
+  --green: #196B24;
+  --green-light: #e8f5ea;
+  --orange: #E97132;
+  --grey-100: #F8F8F8;
+  --grey-200: #EFEFEF;
+  --grey-300: #DCDCDC;
+  --grey-400: #BBBBBB;
+  --grey-600: #757575;
+  --grey-800: #333333;
+  --white: #FFFFFF;
+  --font: 'Segoe UI', Arial, sans-serif;
+  --radius: 6px;
+  --shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);font-size:14px}
+
+/* Header */
+.header{background:var(--navy);color:var(--white);padding:0}
+.header-top{display:flex;align-items:center;padding:12px 20px;gap:16px;border-bottom:3px solid var(--magenta)}
+.header-logo{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--grey-400)}
+.header-logo span{color:var(--magenta);font-size:14px;font-weight:700}
+.header-title{flex:1}
+.header-title h1{font-size:18px;font-weight:600;color:var(--white)}
+.header-title p{font-size:12px;color:var(--grey-400);margin-top:2px}
+.header-badge{background:var(--magenta);color:white;font-size:10px;padding:3px 10px;border-radius:20px;font-weight:600;white-space:nowrap}
+
+/* Loading */
+#loading{display:flex;align-items:center;justify-content:center;height:calc(100vh - 60px);flex-direction:column;gap:12px}
+.spinner{width:36px;height:36px;border:3px solid var(--grey-300);border-top-color:var(--magenta);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading p{color:var(--grey-600);font-size:13px}
+
+/* Layout */
+#app{display:none}
+.app-body{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 60px)}
+
+/* Sidebar */
+.sidebar{background:var(--white);border-right:1px solid var(--grey-300);overflow-y:auto;height:calc(100vh - 60px);position:sticky;top:0}
+.sidebar-section{padding:14px 16px;border-bottom:1px solid var(--grey-200)}
+.sidebar-section h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--grey-600);margin-bottom:10px}
+
+/* Geography selector */
+.geo-tabs{display:flex;gap:4px;margin-bottom:10px}
+.geo-tab{flex:1;padding:5px 8px;font-size:11px;border:1px solid var(--grey-300);border-radius:var(--radius);cursor:pointer;background:var(--grey-100);color:var(--grey-600);text-align:center;transition:all .15s}
+.geo-tab.active{background:var(--navy);color:white;border-color:var(--navy)}
+.geo-select{width:100%;padding:6px 8px;border:1px solid var(--grey-300);border-radius:var(--radius);font-size:12px;color:var(--grey-800);background:white}
+
+/* Comparison LAs */
+.comp-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.comp-row select{flex:1;padding:5px 6px;border:1px solid var(--grey-300);border-radius:var(--radius);font-size:11px}
+.comp-row button{padding:4px 7px;border:1px solid var(--grey-300);border-radius:var(--radius);cursor:pointer;background:var(--grey-100);color:var(--grey-600);font-size:11px}
+.btn-add{width:100%;padding:5px;border:1px dashed var(--grey-400);border-radius:var(--radius);cursor:pointer;background:transparent;color:var(--grey-600);font-size:11px;margin-top:6px}
+.btn-add:hover{border-color:var(--magenta);color:var(--magenta)}
+
+/* SIC selector */
+.sic-search{width:100%;padding:6px 8px;border:1px solid var(--grey-300);border-radius:var(--radius);font-size:12px;margin-bottom:8px}
+.sic-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--magenta);margin:8px 0 4px;padding-top:4px;border-top:1px solid var(--grey-200)}
+.sic-section-label:first-child{border-top:none;margin-top:0}
+.sic-item{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;cursor:pointer}
+.sic-item:hover{background:var(--grey-100)}
+.sic-item input{flex-shrink:0;accent-color:var(--magenta)}
+.sic-item label{font-size:11px;color:var(--grey-800);cursor:pointer;line-height:1.3}
+.sic-item label span{font-size:10px;color:var(--grey-600)}
+.sic-quick{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.sic-quick button{font-size:10px;padding:2px 8px;border-radius:12px;border:1px solid var(--grey-300);background:var(--grey-100);cursor:pointer;color:var(--grey-700)}
+.sic-quick button:hover{border-color:var(--magenta);color:var(--magenta)}
+.sic-tree .division{margin-bottom:2px}
+.division-header{display:flex;align-items:center;gap:5px;padding:3px 4px;border-radius:4px;cursor:pointer;user-select:none}
+.division-header:hover{background:var(--grey-100)}
+.div-toggle{font-size:10px;color:var(--grey-500);width:12px}
+.div-code{font-size:10px;font-weight:700;color:var(--teal);min-width:28px}
+.div-desc{font-size:11px;color:var(--grey-800)}
+.division-children{padding-left:18px;display:none}
+.division-children.open{display:block}
+
+/* Year range */
+.year-range-row{display:flex;align-items:center;gap:8px}
+.year-range-row select{flex:1;padding:5px 6px;border:1px solid var(--grey-300);border-radius:var(--radius);font-size:12px}
+.year-range-row span{font-size:12px;color:var(--grey-600)}
+.selected-summary{font-size:11px;color:var(--grey-600);margin-top:6px}
+.selected-summary strong{color:var(--magenta)}
+
+/* Main content */
+.main{padding:16px;overflow-y:auto}
+
+/* Stat cards */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.stat-card{background:white;border-radius:var(--radius);padding:14px 16px;border:1px solid var(--grey-300);box-shadow:var(--shadow)}
+.stat-card .label{font-size:11px;color:var(--grey-600);font-weight:500;margin-bottom:4px}
+.stat-card .value{font-size:24px;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
+.stat-card .sub{font-size:11px;color:var(--grey-600);margin-top:3px}
+.stat-card .change{font-weight:600}
+.stat-card .change.pos{color:var(--green)}
+.stat-card .change.neg{color:#c0392b}
+.stat-card.accent{border-left:4px solid var(--magenta)}
+
+/* Chart grid */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.chart-grid.full{grid-template-columns:1fr}
+@media(max-width:900px){.chart-grid{grid-template-columns:1fr}}
+.chart-card{background:white;border-radius:var(--radius);border:1px solid var(--grey-300);box-shadow:var(--shadow);padding:14px}
+.chart-card h3{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:2px}
+.chart-card .chart-sub{font-size:11px;color:var(--grey-600);margin-bottom:10px}
+.chart-wrap{position:relative}
+.chart-tabs{display:flex;gap:4px;margin-bottom:8px}
+.chart-tab{font-size:11px;padding:3px 10px;border:1px solid var(--grey-300);border-radius:12px;cursor:pointer;background:white;color:var(--grey-600)}
+.chart-tab.active{background:var(--navy);color:white;border-color:var(--navy)}
+
+/* Rank table */
+.rank-table-wrap{background:white;border-radius:var(--radius);border:1px solid var(--grey-300);box-shadow:var(--shadow);padding:14px;margin-bottom:12px}
+.rank-table-wrap h3{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px}
+.rank-table-wrap .sub{font-size:11px;color:var(--grey-600);margin-bottom:10px}
+.rank-table{width:100%;border-collapse:collapse;font-size:12px}
+.rank-table th{color:var(--grey-600);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:6px 8px;border-bottom:2px solid var(--grey-200)}
+.rank-table td{padding:6px 8px;border-bottom:1px solid var(--grey-100)}
+.rank-table tr.highlight td{background:var(--magenta-light);font-weight:600}
+.rank-table tr.comp td{background:var(--teal-light)}
+.rank-table .rank-num{color:var(--grey-400);font-weight:700;text-align:right}
+.rank-table .pos{color:var(--green);font-weight:600}
+.rank-table .neg{color:#c0392b;font-weight:600}
+.pill{display:inline-block;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:600}
+.pill.top{background:#d4edda;color:#155724}
+.pill.bot{background:#f8d7da;color:#721c24}
+.pill.mid{background:var(--grey-200);color:var(--grey-600)}
+
+/* No data */
+.no-data{display:flex;align-items:center;justify-content:center;height:200px;color:var(--grey-400);flex-direction:column;gap:8px}
+.no-data-icon{font-size:32px}
+
+/* Warning banner */
+.banner{padding:8px 14px;border-radius:var(--radius);font-size:11px;margin-bottom:12px;display:flex;gap:8px;align-items:flex-start}
+.banner.info{background:#e7f3fe;border-left:4px solid #2196F3;color:#0d3a6e}
+.banner.warn{background:#fff3cd;border-left:4px solid #ffc107;color:#664d03}
+
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--grey-600)}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* Tabs */
+.main-tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--grey-300)}
+.main-tab{padding:8px 18px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--grey-600);border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s}
+.main-tab:hover{color:var(--navy)}
+.main-tab.active{color:var(--magenta);border-bottom-color:var(--magenta);font-weight:600}
+
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* GVA method note */
+.method-note{font-size:10px;color:var(--grey-500);font-style:italic;margin-top:4px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div class="header-logo"><span>W</span> Westminster City Council</div>
+    <div class="header-title">
+      <h1>Economic Data Explorer</h1>
+      <p>Employment (BRES 2015–2024) · GVA (ONS current prices 1998–2023) · 361 local authorities</p>
+    </div>
+    <div class="header-badge">BETA</div>
+  </div>
+</div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Loading economic data...</p>
+</div>
+
+<div id="app">
+<div class="app-body">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+
+  <!-- Geography -->
+  <div class="sidebar-section">
+    <h3>Primary area</h3>
+    <div class="geo-tabs" id="geoTabs">
+      <div class="geo-tab active" data-geo="westminster" onclick="setGeo('westminster')">Westminster</div>
+      <div class="geo-tab" data-geo="custom" onclick="setGeo('custom')">Other LA</div>
+    </div>
+    <select id="primaryLaSelect" class="geo-select" style="display:none" onchange="setPrimaryLa(this.value)"></select>
+  </div>
+
+  <!-- Comparison areas -->
+  <div class="sidebar-section">
+    <h3>Compare with</h3>
+    <div id="compAreas"></div>
+    <button class="btn-add" onclick="addCompArea()">+ Add comparison area</button>
+  </div>
+
+  <!-- Year range -->
+  <div class="sidebar-section">
+    <h3>Year range</h3>
+    <div class="year-range-row">
+      <select id="yearFrom" onchange="updateCharts()"></select>
+      <span>to</span>
+      <select id="yearTo" onchange="updateCharts()"></select>
+    </div>
+  </div>
+
+  <!-- SIC codes -->
+  <div class="sidebar-section" style="flex:1">
+    <h3>SIC codes</h3>
+    <div class="sic-quick">
+      <button onclick="selectPreset('lifesciences')">Life sciences</button>
+      <button onclick="selectPreset('finance')">Finance</button>
+      <button onclick="selectPreset('ict')">ICT</button>
+      <button onclick="selectPreset('construction')">Construction</button>
+      <button onclick="clearSic()">Clear all</button>
+    </div>
+    <input type="text" class="sic-search" id="sicSearch" placeholder="Search SIC codes or descriptions..." oninput="filterSic(this.value)">
+    <div id="selectedSicSummary" class="selected-summary"></div>
+    <div id="sicTree" class="sic-tree" style="max-height:calc(100vh - 480px);overflow-y:auto;padding-right:4px"></div>
+  </div>
+
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="main-tabs">
+    <button class="main-tab active" onclick="showTab('overview')">Overview</button>
+    <button class="main-tab" onclick="showTab('employment')">Employment</button>
+    <button class="main-tab" onclick="showTab('gva')">GVA</button>
+    <button class="main-tab" onclick="showTab('rankings')">Rankings</button>
+    <button class="main-tab" onclick="showTab('growth')">Growth</button>
+  </div>
+
+  <!-- OVERVIEW TAB -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="stat-grid" id="overviewStats"></div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Employment over time</h3>
+        <div class="chart-sub">Selected SIC codes, primary area vs comparisons</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="overviewEmpChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Estimated GVA over time</h3>
+        <div class="chart-sub">Current prices £m · Employment-share method</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="overviewGvaChart"></canvas></div>
+        <div class="method-note">GVA estimated by applying each code's employment share of its parent SIC category to published ONS GVA for that category.</div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Employment by SIC code (2024)</h3>
+        <div class="chart-sub">Primary area breakdown</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="overviewBreakdownChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Growth since base year</h3>
+        <div class="chart-sub">% change in employment, primary vs comparisons</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="overviewGrowthChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMPLOYMENT TAB -->
+  <div class="tab-panel" id="tab-employment">
+    <div class="stat-grid" id="empStats"></div>
+    <div class="chart-card" style="margin-bottom:12px">
+      <h3>Employment trend</h3>
+      <div class="chart-sub">All selected SIC codes combined</div>
+      <div class="chart-tabs">
+        <button class="chart-tab active" onclick="setEmpMode('combined')">Combined</button>
+        <button class="chart-tab" onclick="setEmpMode('split')">By code</button>
+        <button class="chart-tab" onclick="setEmpMode('compare')">Compare areas</button>
+      </div>
+      <div class="legend" id="empLegend"></div>
+      <div class="chart-wrap" style="height:260px"><canvas id="empTrendChart"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>SIC code breakdown (latest year)</h3>
+        <div class="chart-sub">Employment by individual code, primary area</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="empBreakdownChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Employment share of total economy</h3>
+        <div class="chart-sub">Selected codes as % of all employment in area</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="empShareChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GVA TAB -->
+  <div class="tab-panel" id="tab-gva">
+    <div class="stat-grid" id="gvaStats"></div>
+    <div class="banner info">ℹ️ GVA at 5-digit SIC level is not published. Figures below are estimated using each code's share of employment within its published GVA parent category. Treat as indicative.</div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Estimated GVA trend</h3>
+        <div class="chart-sub">Current prices £m, primary area</div>
+        <div class="chart-tabs">
+          <button class="chart-tab active" onclick="setGvaMode('stacked')">Stacked by code</button>
+          <button class="chart-tab" onclick="setGvaMode('compare')">Compare areas</button>
+        </div>
+        <div class="legend" id="gvaLegend"></div>
+        <div class="chart-wrap" style="height:260px"><canvas id="gvaStackChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>GVA by parent category (direct)</h3>
+        <div class="chart-sub">Published ONS GVA for parent SIC categories, primary area</div>
+        <div class="chart-wrap" style="height:260px"><canvas id="gvaParentChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RANKINGS TAB -->
+  <div class="tab-panel" id="tab-rankings">
+    <div class="stat-grid" id="rankStats"></div>
+    <div class="rank-table-wrap">
+      <h3>Employment rankings — all local authorities</h3>
+      <div class="sub">Total employment across selected SIC codes · Latest year available</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+        <select id="rankFilter" onchange="renderRankings()" style="padding:5px 8px;border:1px solid var(--grey-300);border-radius:var(--radius);font-size:12px">
+          <option value="all">All 361 LAs</option>
+          <option value="london">London boroughs only</option>
+          <option value="inner">Inner London only</option>
+        </select>
+        <select id="rankMetric" onchange="renderRankings()" style="padding:5px 8px;border:1px solid var(--grey-300);border-radius:var(--radius);font-size:12px">
+          <option value="emp2024">Employment (2024)</option>
+          <option value="empGrowth">Growth since 2015</option>
+          <option value="gva">Estimated GVA (2023)</option>
+        </select>
+      </div>
+      <div id="rankTableContainer"></div>
+    </div>
+  </div>
+
+  <!-- GROWTH TAB -->
+  <div class="tab-panel" id="tab-growth">
+    <div class="stat-grid" id="growthStats"></div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Westminster vs National growth by code</h3>
+        <div class="chart-sub">% employment change since base year, per selected SIC code</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="growthCompChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>CAGR by code</h3>
+        <div class="chart-sub">Compound annual growth rate in employment, primary area</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="growthCagrChart"></canvas></div>
+      </div>
+    </div>
+    <div class="rank-table-wrap">
+      <h3>Growth rankings — employment change</h3>
+      <div class="sub">% growth in selected codes, primary vs other LAs with similar base (≥50 employees at start year)</div>
+      <div id="growthRankTable"></div>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+let CORE = null, BRES = null, HIER = null;
+let primaryLa = 'Westminster';
+let compLas = [];
+let selectedSics = new Set();
+let yearFrom = 2015, yearTo = 2024;
+let empMode = 'combined', gvaMode = 'stacked';
+let charts = {};
+
+const PALETTE = ['#C0005A','#1D5F7A','#196B24','#E97132','#0F9ED5','#96607D','#4EA72E','#0E2841','#A02B93','#E97132'];
+const PRESETS = {
+  lifesciences: ['21100','21200','26600','32500','46460','71200','72110','72190'],
+  finance: ['64110','64191','64192','64200','64300','64910','64920','64991','64992','64999','65110','65120','65200','65300','66110','66120','66190','66210','66220','66290','66300'],
+  ict: ['58110','58120','58130','58141','58142','58190','58210','58290','59111','59112','59113','59114','59120','59130','59140','59200','60100','60200','61100','61200','61300','61900','62011','62012','62020','62030','62090','63110','63120','63910','63990'],
+  construction: ['41100','41201','41202','42110','42120','42130','42210','42220','42910','42990','43110','43120','43130','43210','43220','43290','43310','43320','43330','43341','43342','43390','43910','43991','43999'],
+};
+const GVA_YEARS_RANGE = Array.from({length:24}, (_,i) => 2000+i);
+const BRES_YEARS = Array.from({length:10}, (_,i) => 2015+i);
+
+// ============================================================
+//  LOAD DATA
+// ============================================================
+async function loadData() {
+  setLoading('Loading GVA and metadata...');
+  const [core, bres, hier] = await Promise.all([
+    fetch('data_core.json').then(r => r.json()),
+    fetch('data_bres.json').then(r => r.json()),
+    fetch('sic_hierarchy.json').then(r => r.json()),
+  ]);
+  CORE = core; BRES = bres; HIER = hier;
+  setLoading('Building interface...');
+  init();
+}
+
+function setLoading(msg) {
+  document.getElementById('loadingMsg').textContent = msg;
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+function init() {
+  buildYearSelectors();
+  buildPrimaryLaSelect();
+  buildSicTree();
+  selectPreset('lifesciences');
+  addCompArea('Camden');
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  updateAll();
+}
+
+function buildYearSelectors() {
+  const yf = document.getElementById('yearFrom');
+  const yt = document.getElementById('yearTo');
+  BRES_YEARS.forEach(y => {
+    yf.innerHTML += `<option value="${y}" ${y==2015?'selected':''}>${y}</option>`;
+    yt.innerHTML += `<option value="${y}" ${y==2024?'selected':''}>${y}</option>`;
+  });
+}
+
+function buildPrimaryLaSelect() {
+  const sel = document.getElementById('primaryLaSelect');
+  const las = Object.keys(CORE.meta.la_regions).sort();
+  las.forEach(la => sel.innerHTML += `<option value="${la}" ${la=='Westminster'?'selected':''}>${la}</option>`);
+}
+
+function buildSicTree() {
+  const tree = document.getElementById('sicTree');
+  const sections = HIER.sections;
+  const codesByDiv = HIER.codes_by_div;
+  const sectionForDiv = HIER.section_for_div;
+
+  // Group divisions by section
+  const divsBySection = {};
+  Object.entries(sectionForDiv).forEach(([div, sec]) => {
+    if (!divsBySection[sec]) divsBySection[sec] = [];
+    divsBySection[sec].push(div);
+  });
+
+  let html = '';
+  Object.entries(sections).forEach(([sec, [divRange, secDesc]]) => {
+    const divs = (divsBySection[sec] || []).filter(d => codesByDiv[d] && codesByDiv[d].length > 0);
+    if (!divs.length) return;
+    html += `<div class="sic-section-label">${sec} — ${secDesc}</div>`;
+    divs.sort().forEach(div => {
+      const codes = codesByDiv[div] || [];
+      if (!codes.length) return;
+      html += `<div class="division" id="div_${div}">
+        <div class="division-header" onclick="toggleDiv('${div}')">
+          <span class="div-toggle">▶</span>
+          <span class="div-code">${div}</span>
+          <span class="div-desc">${codes[0]?.desc?.slice(0,40) || ''}...</span>
+        </div>
+        <div class="division-children" id="children_${div}">
+          ${codes.map(c => `
+            <div class="sic-item" id="sic_item_${c.code}">
+              <input type="checkbox" id="sic_${c.code}" value="${c.code}" onchange="toggleSic('${c.code}')">
+              <label for="sic_${c.code}"><span>${c.code}</span> ${c.desc}</label>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    });
+  });
+  tree.innerHTML = html;
+}
+
+function toggleDiv(div) {
+  const children = document.getElementById(`children_${div}`);
+  const header = children.previousElementSibling;
+  const toggle = header.querySelector('.div-toggle');
+  children.classList.toggle('open');
+  toggle.textContent = children.classList.contains('open') ? '▼' : '▶';
+}
+
+function filterSic(query) {
+  const q = query.toLowerCase();
+  const tree = document.getElementById('sicTree');
+  if (!q) {
+    tree.querySelectorAll('.sic-item').forEach(el => el.style.display = '');
+    tree.querySelectorAll('.division-children').forEach(el => el.classList.remove('open'));
+    tree.querySelectorAll('.div-toggle').forEach(el => el.textContent = '▶');
+    return;
+  }
+  tree.querySelectorAll('.sic-item').forEach(el => {
+    const text = el.textContent.toLowerCase();
+    const show = text.includes(q);
+    el.style.display = show ? '' : 'none';
+    if (show) {
+      const children = el.closest('.division-children');
+      if (children) {
+        children.classList.add('open');
+        children.previousElementSibling.querySelector('.div-toggle').textContent = '▼';
+      }
+    }
+  });
+}
+
+// ============================================================
+//  SELECTIONS
+// ============================================================
+function setGeo(type) {
+  document.querySelectorAll('.geo-tab').forEach(t => t.classList.toggle('active', t.dataset.geo === type));
+  document.getElementById('primaryLaSelect').style.display = type === 'custom' ? '' : 'none';
+  if (type === 'westminster') { primaryLa = 'Westminster'; updateAll(); }
+}
+
+function setPrimaryLa(la) { primaryLa = la; updateAll(); }
+
+function addCompArea(la = null) {
+  const id = Date.now();
+  const div = document.createElement('div');
+  div.className = 'comp-row';
+  div.id = `comp_${id}`;
+  const allLas = Object.keys(CORE.meta.la_regions).sort();
+  const defaultVal = la || allLas[0];
+  div.innerHTML = `
+    <select onchange="updateComp()">
+      ${allLas.map(l => `<option value="${l}" ${l==defaultVal?'selected':''}>${l}</option>`).join('')}
+    </select>
+    <button onclick="removeComp('comp_${id}')">✕</button>`;
+  document.getElementById('compAreas').appendChild(div);
+  updateComp();
+}
+
+function removeComp(id) {
+  document.getElementById(id)?.remove();
+  updateComp();
+}
+
+function updateComp() {
+  compLas = Array.from(document.querySelectorAll('#compAreas select')).map(s => s.value);
+  updateAll();
+}
+
+function toggleSic(code) {
+  if (selectedSics.has(code)) selectedSics.delete(code);
+  else selectedSics.add(code);
+  updateSicSummary();
+  updateAll();
+}
+
+function selectPreset(name) {
+  selectedSics.clear();
+  const codes = PRESETS[name] || [];
+  codes.forEach(c => {
+    if (BRES[c]) selectedSics.add(c);
+  });
+  // Update checkboxes
+  document.querySelectorAll('#sicTree input[type=checkbox]').forEach(cb => {
+    cb.checked = selectedSics.has(cb.value);
+  });
+  // Open relevant divisions
+  selectedSics.forEach(c => {
+    const div2 = c.slice(0,2);
+    const children = document.getElementById(`children_${div2}`);
+    if (children) {
+      children.classList.add('open');
+      children.previousElementSibling.querySelector('.div-toggle').textContent = '▼';
+    }
+  });
+  updateSicSummary();
+  updateAll();
+}
+
+function clearSic() {
+  selectedSics.clear();
+  document.querySelectorAll('#sicTree input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateSicSummary();
+  updateAll();
+}
+
+function updateSicSummary() {
+  const el = document.getElementById('selectedSicSummary');
+  el.innerHTML = `<strong>${selectedSics.size}</strong> code${selectedSics.size !== 1 ? 's' : ''} selected`;
+}
+
+function showTab(name) {
+  document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.main-tab[onclick="showTab('${name}')"]`).classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+  updateAll();
+}
+
+function setEmpMode(m) {
+  empMode = m;
+  document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.chart-tab[onclick="setEmpMode('${m}')"]`)?.classList.add('active');
+  renderEmpTrendChart();
+}
+
+function setGvaMode(m) {
+  gvaMode = m;
+  document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.chart-tab[onclick="setGvaMode('${m}')"]`)?.classList.add('active');
+  renderGvaStackChart();
+}
+
+// ============================================================
+//  DATA ACCESS
+// ============================================================
+function getEmp(la, sic, year) {
+  const d = BRES[sic];
+  if (!d || !d[la]) return 0;
+  const idx = BRES_YEARS.indexOf(year);
+  return idx >= 0 ? (d[la][idx] || 0) : 0;
+}
+
+function getTotalEmp(la, year) {
+  const d = CORE.bres_meta.totals[la];
+  return d ? (d[String(year)] || 0) : 0;
+}
+
+function getSelectedEmp(la, year) {
+  return Array.from(selectedSics).reduce((s, c) => s + getEmp(la, c, year), 0);
+}
+
+function getGva(la, sicCat, year) {
+  const cats = CORE.gva.by_sic[sicCat];
+  if (!cats || !cats[la]) return null;
+  const idx = GVA_YEARS_RANGE.indexOf(year);
+  return idx >= 0 ? cats[la][idx] : null;
+}
+
+function getParentCat(sic5) {
+  return CORE.bres_meta.sic_to_gva[sic5] || null;
+}
+
+function getParentCatEmpDenominator(la, parentCat, year) {
+  // Sum all 5-digit codes in BRES that map to this GVA parent category
+  let total = 0;
+  Object.entries(CORE.bres_meta.sic_to_gva).forEach(([code, cat]) => {
+    if (cat === parentCat) total += getEmp(la, code, year);
+  });
+  return total;
+}
+
+function estimateGva(la, sic5, year) {
+  // year must be in GVA range (2000-2023)
+  if (year > 2023 || year < 2000) return null;
+  const cat = getParentCat(sic5);
+  if (!cat) return null;
+  const parentGva = getGva(la, cat, year);
+  if (parentGva === null) return null;
+  const codeEmp = getEmp(la, sic5, Math.min(year, 2024));
+  const parentEmp = getParentCatEmpDenominator(la, cat, Math.min(year, 2024));
+  if (!parentEmp) return null;
+  return parentGva * (codeEmp / parentEmp);
+}
+
+function getTotalEstGva(la, year) {
+  return Array.from(selectedSics).reduce((s, c) => {
+    const v = estimateGva(la, c, year);
+    return s + (v || 0);
+  }, 0);
+}
+
+function getEmpSeries(la, years) {
+  return years.map(y => getSelectedEmp(la, y));
+}
+
+function getGvaSeries(la, years) {
+  return years.map(y => getTotalEstGva(la, y));
+}
+
+function getBresYearRange() {
+  const yf = parseInt(document.getElementById('yearFrom').value);
+  const yt = parseInt(document.getElementById('yearTo').value);
+  return BRES_YEARS.filter(y => y >= yf && y <= yt);
+}
+
+function getGvaYearRange() {
+  const yf = parseInt(document.getElementById('yearFrom').value);
+  const yt = parseInt(document.getElementById('yearTo').value);
+  return GVA_YEARS_RANGE.filter(y => y >= Math.max(yf, 2000) && y <= Math.min(yt, 2023));
+}
+
+// ============================================================
+//  UPDATE ALL
+// ============================================================
+function updateAll() {
+  yearFrom = parseInt(document.getElementById('yearFrom').value);
+  yearTo = parseInt(document.getElementById('yearTo').value);
+  const tab = document.querySelector('.main-tab.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'overview';
+  if (tab === 'overview') renderOverview();
+  else if (tab === 'employment') renderEmployment();
+  else if (tab === 'gva') renderGva();
+  else if (tab === 'rankings') renderRankings();
+  else if (tab === 'growth') renderGrowth();
+}
+
+function updateCharts() { updateAll(); }
+
+// ============================================================
+//  CHART HELPERS
+// ============================================================
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function mkChart(id, config) {
+  destroyChart(id);
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, config);
+}
+
+const gridColor = 'rgba(0,0,0,0.06)';
+const tickColor = '#888';
+const baseScales = {
+  x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor }, border: { color: '#ccc' } },
+  y: { ticks: { color: tickColor, font: { size: 10 }, callback: v => v.toLocaleString() }, grid: { color: gridColor }, border: { color: '#ccc' } }
+};
+
+function pctScales() {
+  return { ...baseScales, y: { ...baseScales.y, ticks: { ...baseScales.y.ticks, callback: v => v + '%' } } };
+}
+
+function gvaScales() {
+  return { ...baseScales, y: { ...baseScales.y, ticks: { ...baseScales.y.ticks, callback: v => '£' + v.toLocaleString() + 'm' } } };
+}
+
+// ============================================================
+//  OVERVIEW TAB
+// ============================================================
+function renderOverview() {
+  if (!BRES || selectedSics.size === 0) { showNoData('overviewStats'); return; }
+  const bresYears = getBresYearRange();
+  const latestYear = bresYears[bresYears.length - 1];
+  const baseYear = bresYears[0];
+  const allAreas = [primaryLa, ...compLas];
+
+  // Stats
+  const wEmp24 = getSelectedEmp(primaryLa, latestYear);
+  const wEmpBase = getSelectedEmp(primaryLa, baseYear);
+  const wGva = getTotalEstGva(primaryLa, Math.min(latestYear, 2023));
+  const wTotal = getTotalEmp(primaryLa, latestYear);
+  const wShare = wTotal ? (wEmp24 / wTotal * 100).toFixed(2) : '—';
+  const empGrowth = wEmpBase ? ((wEmp24 - wEmpBase) / wEmpBase * 100).toFixed(1) : '—';
+  const n = bresYears.length - 1;
+  const cagr = (wEmpBase && n > 0) ? (((wEmp24/wEmpBase)**(1/n)-1)*100).toFixed(1) : '—';
+
+  document.getElementById('overviewStats').innerHTML = `
+    <div class="stat-card accent"><div class="label">Employment (${latestYear})</div><div class="value">${wEmp24.toLocaleString()}</div><div class="sub">${primaryLa} · selected codes</div></div>
+    <div class="stat-card"><div class="label">Growth since ${baseYear}</div><div class="value"><span class="change ${parseFloat(empGrowth)>=0?'pos':'neg'}">${empGrowth !== '—' ? (parseFloat(empGrowth)>=0?'+':'')+empGrowth+'%' : '—'}</span></div><div class="sub">Abs: ${wEmpBase ? (wEmp24-wEmpBase>=0?'+':'')+(wEmp24-wEmpBase).toLocaleString() : '—'}</div></div>
+    <div class="stat-card"><div class="label">CAGR</div><div class="value"><span class="change ${parseFloat(cagr)>=0?'pos':'neg'}">${cagr !== '—' ? cagr+'%' : '—'}</span></div><div class="sub">Per year, ${baseYear}–${latestYear}</div></div>
+    <div class="stat-card"><div class="label">Est. GVA (${Math.min(latestYear,2023)})</div><div class="value">£${Math.round(wGva).toLocaleString()}m</div><div class="sub">Current prices · indicative</div></div>
+    <div class="stat-card"><div class="label">Share of local economy</div><div class="value">${wShare}%</div><div class="sub">Selected codes as % of all employment</div></div>
+  `;
+
+  // Employment trend
+  const datasets = allAreas.map((la, i) => ({
+    label: la,
+    data: bresYears.map(y => getSelectedEmp(la, y)),
+    borderColor: PALETTE[i], backgroundColor: PALETTE[i] + '18',
+    borderWidth: i === 0 ? 2.5 : 1.5, pointRadius: 3, tension: 0.3,
+    fill: i === 0
+  }));
+  mkChart('overviewEmpChart', { type: 'line', data: { labels: bresYears, datasets },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 12 } } }, scales: baseScales }
+  });
+
+  // GVA trend
+  const gvaYears = getGvaYearRange();
+  const gvaSets = allAreas.map((la, i) => ({
+    label: la,
+    data: gvaYears.map(y => +getTotalEstGva(la, y).toFixed(1)),
+    borderColor: PALETTE[i], backgroundColor: 'transparent',
+    borderWidth: i === 0 ? 2.5 : 1.5, pointRadius: 2, tension: 0.3
+  }));
+  mkChart('overviewGvaChart', { type: 'line', data: { labels: gvaYears, datasets: gvaSets },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 12 } } }, scales: gvaScales() }
+  });
+
+  // Breakdown by code (primary la, latest year)
+  const codes = Array.from(selectedSics).filter(c => getEmp(primaryLa, c, latestYear) > 0);
+  mkChart('overviewBreakdownChart', { type: 'bar',
+    data: { labels: codes, datasets: [{ data: codes.map(c => getEmp(primaryLa, c, latestYear)), backgroundColor: codes.map((_,i) => PALETTE[i % PALETTE.length]), borderRadius: 3 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${BRES[ctx.label] ? Object.keys(BRES[ctx.label])[0] : ''}: ${ctx.raw.toLocaleString()}` } } }, scales: baseScales }
+  });
+
+  // Growth chart
+  const growthSets = allAreas.map((la, i) => ({
+    label: la,
+    data: bresYears.map(y => { const b = getSelectedEmp(la, baseYear); return b ? +((getSelectedEmp(la,y)/b-1)*100).toFixed(1) : 0; }),
+    borderColor: PALETTE[i], backgroundColor: 'transparent',
+    borderWidth: i === 0 ? 2.5 : 1.5, pointRadius: 2, tension: 0.3
+  }));
+  mkChart('overviewGrowthChart', { type: 'line', data: { labels: bresYears, datasets: growthSets },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 12 } } }, scales: pctScales() }
+  });
+}
+
+// ============================================================
+//  EMPLOYMENT TAB
+// ============================================================
+function renderEmployment() {
+  if (!BRES || selectedSics.size === 0) return;
+  const bresYears = getBresYearRange();
+  const latestYear = bresYears[bresYears.length - 1];
+  const baseYear = bresYears[0];
+
+  const wEmp = getSelectedEmp(primaryLa, latestYear);
+  const wEmpBase = getSelectedEmp(primaryLa, baseYear);
+
+  // Rank among all LAs
+  const allLas = Object.keys(CORE.meta.la_regions);
+  const empByLa = allLas.map(la => ({ la, emp: getSelectedEmp(la, latestYear) })).sort((a,b) => b.emp - a.emp);
+  const rank = empByLa.findIndex(x => x.la === primaryLa) + 1;
+
+  document.getElementById('empStats').innerHTML = `
+    <div class="stat-card accent"><div class="label">Employment (${latestYear})</div><div class="value">${wEmp.toLocaleString()}</div><div class="sub">${primaryLa}</div></div>
+    <div class="stat-card"><div class="label">National rank</div><div class="value">${rank}<span style="font-size:14px;color:#aaa"> / ${allLas.length}</span></div><div class="sub">Among all LAs</div></div>
+    <div class="stat-card"><div class="label">Growth since ${baseYear}</div><div class="value"><span class="change ${wEmpBase&&wEmp>=wEmpBase?'pos':'neg'}">${wEmpBase ? (wEmp>=wEmpBase?'+':'')+((wEmp/wEmpBase-1)*100).toFixed(1)+'%' : '—'}</span></div><div class="sub">Abs: ${wEmpBase?(wEmp-wEmpBase>=0?'+':'')+(wEmp-wEmpBase).toLocaleString():'—'}</div></div>
+    <div class="stat-card"><div class="label">London rank</div><div class="value">${empByLa.filter(x=>CORE.meta.la_is_london[x.la]).findIndex(x=>x.la===primaryLa)+1}<span style="font-size:14px;color:#aaa"> / 33</span></div><div class="sub">Among London boroughs</div></div>
+  `;
+
+  renderEmpTrendChart();
+
+  // Breakdown
+  const codes = Array.from(selectedSics);
+  const codeDescs = codes.map(c => CORE.bres_meta.sic_desc[c] || c);
+  mkChart('empBreakdownChart', { type: 'bar',
+    data: { labels: codes.map(c => c), datasets: [{ label: primaryLa, data: codes.map(c => getEmp(primaryLa, c, latestYear)), backgroundColor: PALETTE[0], borderRadius: 3 },
+      ...compLas.map((la, i) => ({ label: la, data: codes.map(c => getEmp(la, c, latestYear)), backgroundColor: PALETTE[i+1], borderRadius: 3 }))
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10 } }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[ctx[0].label] || ctx[0].label } } }, scales: baseScales }
+  });
+
+  // Share chart
+  mkChart('empShareChart', { type: 'line',
+    data: { labels: bresYears, datasets: [primaryLa, ...compLas].map((la, i) => ({
+      label: la,
+      data: bresYears.map(y => { const t = getTotalEmp(la, y); return t ? +((getSelectedEmp(la,y)/t)*100).toFixed(3) : 0; }),
+      borderColor: PALETTE[i], backgroundColor: 'transparent', borderWidth: i===0?2.5:1.5, pointRadius: 2, tension: 0.3
+    }))},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10 } } }, scales: { ...baseScales, y: { ...baseScales.y, ticks: { ...baseScales.y.ticks, callback: v => v.toFixed(2)+'%' } } } }
+  });
+}
+
+function renderEmpTrendChart() {
+  if (!BRES) return;
+  const bresYears = getBresYearRange();
+  const baseYear = bresYears[0];
+  let datasets = [], labels = bresYears;
+
+  if (empMode === 'combined') {
+    datasets = [primaryLa, ...compLas].map((la, i) => ({
+      label: la,
+      data: bresYears.map(y => getSelectedEmp(la, y)),
+      borderColor: PALETTE[i], backgroundColor: PALETTE[i]+'18',
+      borderWidth: i===0?2.5:1.5, pointRadius: 3, tension: 0.3, fill: i===0
+    }));
+    document.getElementById('empLegend').innerHTML = '';
+  } else if (empMode === 'split') {
+    const codes = Array.from(selectedSics);
+    datasets = codes.map((c, i) => ({
+      label: `${c} — ${(CORE.bres_meta.sic_desc[c]||'').slice(0,35)}`,
+      data: bresYears.map(y => getEmp(primaryLa, c, y)),
+      borderColor: PALETTE[i % PALETTE.length], backgroundColor: 'transparent',
+      borderWidth: 1.5, pointRadius: 2, tension: 0.3
+    }));
+    document.getElementById('empLegend').innerHTML = codes.map((c,i) =>
+      `<span class="leg-item"><span class="leg-dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${c}</span>`).join('');
+  } else {
+    datasets = [primaryLa, ...compLas].map((la, i) => ({
+      label: la,
+      data: bresYears.map(y => { const b = getSelectedEmp(la, baseYear); return b ? +((getSelectedEmp(la,y)/b-1)*100).toFixed(1) : 0; }),
+      borderColor: PALETTE[i], backgroundColor: 'transparent',
+      borderWidth: i===0?2.5:1.5, pointRadius: 2, tension: 0.3
+    }));
+    document.getElementById('empLegend').innerHTML = '';
+  }
+
+  mkChart('empTrendChart', { type: 'line', data: { labels, datasets },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10 } } }, scales: empMode==='compare' ? pctScales() : baseScales }
+  });
+}
+
+// ============================================================
+//  GVA TAB
+// ============================================================
+function renderGva() {
+  if (!BRES) return;
+  const latestGvaYear = Math.min(yearTo, 2023);
+  const baseGvaYear = Math.max(yearFrom, 2000);
+  const wGva = getTotalEstGva(primaryLa, latestGvaYear);
+  const wGvaBase = getTotalEstGva(primaryLa, baseGvaYear);
+
+  document.getElementById('gvaStats').innerHTML = `
+    <div class="stat-card accent"><div class="label">Estimated GVA (${latestGvaYear})</div><div class="value">£${Math.round(wGva).toLocaleString()}m</div><div class="sub">Current prices · ${primaryLa}</div></div>
+    <div class="stat-card"><div class="label">GVA growth</div><div class="value"><span class="change ${wGva>=wGvaBase?'pos':'neg'}">${wGvaBase ? (wGva>=wGvaBase?'+':'')+((wGva/wGvaBase-1)*100).toFixed(1)+'%' : '—'}</span></div><div class="sub">${baseGvaYear}–${latestGvaYear}</div></div>
+    <div class="stat-card"><div class="label">GVA per employee (${latestGvaYear})</div><div class="value">£${(getSelectedEmp(primaryLa, Math.min(yearTo,2023)) ? Math.round(wGva*1e6/getSelectedEmp(primaryLa, Math.min(yearTo,2023))/1000) : 0).toLocaleString()}k</div><div class="sub">Estimated</div></div>
+  `;
+
+  renderGvaStackChart();
+
+  // Parent category GVA (direct)
+  const gvaYears = getGvaYearRange();
+  const parentCats = [...new Set(Array.from(selectedSics).map(c => getParentCat(c)).filter(Boolean))];
+  mkChart('gvaParentChart', { type: 'bar',
+    data: { labels: gvaYears, datasets: parentCats.map((cat, i) => ({
+      label: CORE.gva.categories[cat] || cat,
+      data: gvaYears.map(y => { const v = getGva(primaryLa, cat, y); return v !== null ? +v.toFixed(1) : 0; }),
+      backgroundColor: PALETTE[i], borderRadius: 2, stack: 'parent'
+    }))},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 9 }, boxWidth: 10 } } }, scales: { ...gvaScales(), y: { ...gvaScales().y, stacked: true } } }
+  });
+}
+
+function renderGvaStackChart() {
+  if (!BRES) return;
+  const gvaYears = getGvaYearRange();
+  document.getElementById('gvaLegend').innerHTML = '';
+
+  if (gvaMode === 'stacked') {
+    const codes = Array.from(selectedSics);
+    mkChart('gvaStackChart', { type: 'bar',
+      data: { labels: gvaYears, datasets: codes.map((c, i) => ({
+        label: c,
+        data: gvaYears.map(y => { const v = estimateGva(primaryLa, c, y); return v ? +v.toFixed(1) : 0; }),
+        backgroundColor: PALETTE[i % PALETTE.length], borderRadius: 2, stack: 'gva'
+      }))},
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[ctx[0].dataset.label] || ctx[0].dataset.label } } }, scales: { ...gvaScales(), y: { ...gvaScales().y, stacked: true } } }
+    });
+    document.getElementById('gvaLegend').innerHTML = codes.map((c,i) =>
+      `<span class="leg-item"><span class="leg-dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${c}</span>`).join('');
+  } else {
+    const areas = [primaryLa, ...compLas];
+    mkChart('gvaStackChart', { type: 'line',
+      data: { labels: gvaYears, datasets: areas.map((la, i) => ({
+        label: la,
+        data: gvaYears.map(y => +getTotalEstGva(la, y).toFixed(1)),
+        borderColor: PALETTE[i], backgroundColor: 'transparent', borderWidth: i===0?2.5:1.5, pointRadius: 2, tension: 0.3
+      }))},
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10 } } }, scales: gvaScales() }
+    });
+  }
+}
+
+// ============================================================
+//  RANKINGS TAB
+// ============================================================
+function renderRankings() {
+  if (!BRES) return;
+  const filter = document.getElementById('rankFilter').value;
+  const metric = document.getElementById('rankMetric').value;
+  const latestYear = Math.min(yearTo, 2024);
+  const baseYear = Math.max(yearFrom, 2015);
+
+  let las = Object.keys(CORE.meta.la_regions);
+  if (filter === 'london') las = las.filter(la => CORE.meta.la_is_london[la]);
+  else if (filter === 'inner') las = las.filter(la => CORE.meta.la_is_inner[la]);
+
+  let ranked;
+  if (metric === 'emp2024') {
+    ranked = las.map(la => ({ la, val: getSelectedEmp(la, latestYear), val2: null })).sort((a,b) => b.val - a.val);
+  } else if (metric === 'empGrowth') {
+    ranked = las.map(la => {
+      const b = getSelectedEmp(la, baseYear), e = getSelectedEmp(la, latestYear);
+      return { la, val: b ? +(((e/b)-1)*100).toFixed(1) : null, val2: e };
+    }).filter(x => x.val !== null && x.val2 >= 50).sort((a,b) => b.val - a.val);
+  } else {
+    ranked = las.map(la => ({ la, val: +getTotalEstGva(la, Math.min(latestYear,2023)).toFixed(1), val2: null })).sort((a,b) => b.val - a.val);
+  }
+
+  const primaryRank = ranked.findIndex(x => x.la === primaryLa) + 1;
+  document.getElementById('rankStats').innerHTML = `
+    <div class="stat-card accent"><div class="label">${primaryLa} rank</div><div class="value">${primaryRank || '—'}<span style="font-size:14px;color:#aaa"> / ${ranked.length}</span></div><div class="sub">${filter === 'all' ? 'All LAs' : filter === 'london' ? 'London boroughs' : 'Inner London'}</div></div>
+    <div class="stat-card"><div class="label">Areas ranked</div><div class="value">${ranked.length}</div><div class="sub">${metric === 'empGrowth' ? `Min 50 employees at ${baseYear}` : 'All areas'}</div></div>
+  `;
+
+  // Show top 30 + primary if not in top 30
+  const show = ranked.slice(0, 30);
+  if (!show.find(x => x.la === primaryLa) && ranked.find(x => x.la === primaryLa)) {
+    show.push(ranked.find(x => x.la === primaryLa));
+  }
+  compLas.forEach(la => { if (!show.find(x => x.la === la)) show.push(ranked.find(x => x.la === la) || { la, val: 0 }); });
+
+  const fmt = metric === 'empGrowth' ? v => (v >= 0 ? '+' : '') + v + '%' : metric === 'gva' ? v => '£' + v?.toLocaleString() + 'm' : v => v?.toLocaleString();
+  const pillClass = (rank, total) => rank <= total * 0.2 ? 'top' : rank >= total * 0.8 ? 'bot' : 'mid';
+
+  document.getElementById('rankTableContainer').innerHTML = `
+    <table class="rank-table">
+      <thead><tr><th style="text-align:right">#</th><th>Local authority</th><th>Region</th><th>${metric === 'empGrowth' ? `Growth ${baseYear}–${latestYear}` : metric === 'gva' ? `Est. GVA ${Math.min(latestYear,2023)} (£m)` : `Employment ${latestYear}`}</th><th>vs ${primaryLa}</th></tr></thead>
+      <tbody>
+        ${show.map((x, i) => {
+          const rank = ranked.indexOf(x) + 1;
+          const isP = x.la === primaryLa, isC = compLas.includes(x.la);
+          const wVal = ranked.find(r => r.la === primaryLa)?.val || 0;
+          const diff = x.val !== null && wVal ? (x.la === primaryLa ? '—' : (x.val >= wVal ? '+' : '') + (metric === 'empGrowth' ? ((x.val - wVal).toFixed(1) + 'pp') : fmt(metric === 'gva' ? +(x.val - wVal).toFixed(1) : (x.val - wVal)))) : '—';
+          return `<tr class="${isP ? 'highlight' : isC ? 'comp' : ''}">
+            <td class="rank-num">${rank}</td>
+            <td>${x.la}</td>
+            <td style="color:#888;font-size:11px">${CORE.meta.la_regions[x.la] || ''}</td>
+            <td>${x.val !== null ? fmt(x.val) : '—'}</td>
+            <td class="${x.val >= wVal ? 'pos' : 'neg'}" style="font-size:11px">${diff}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:#999;margin-top:8px">Showing top 30 + ${primaryLa} + comparison areas${metric === 'empGrowth' ? '. Areas with <50 employees excluded.' : '.'}</div>
+  `;
+}
+
+// ============================================================
+//  GROWTH TAB
+// ============================================================
+function renderGrowth() {
+  if (!BRES) return;
+  const bresYears = getBresYearRange();
+  const baseYear = bresYears[0];
+  const latestYear = bresYears[bresYears.length - 1];
+  const codes = Array.from(selectedSics);
+
+  // Per-code growth comparison: primary vs national
+  const wGrowths = codes.map(c => {
+    const b = getEmp(primaryLa, c, baseYear), e = getEmp(primaryLa, c, latestYear);
+    return b >= 50 ? +((e/b-1)*100).toFixed(1) : null;
+  });
+  const natGrowths = codes.map(c => {
+    const allLas = Object.keys(CORE.meta.la_regions);
+    const b = allLas.reduce((s,la) => s + getEmp(la,c,baseYear), 0);
+    const e = allLas.reduce((s,la) => s + getEmp(la,c,latestYear), 0);
+    return b ? +((e/b-1)*100).toFixed(1) : null;
+  });
+
+  const wOverall = getSelectedEmp(primaryLa, baseYear);
+  const wEmpEnd = getSelectedEmp(primaryLa, latestYear);
+  const n = bresYears.length - 1;
+  const cagr = wOverall && n > 0 ? (((wEmpEnd/wOverall)**(1/n)-1)*100).toFixed(1) : '—';
+
+  document.getElementById('growthStats').innerHTML = `
+    <div class="stat-card accent"><div class="label">Overall growth ${baseYear}–${latestYear}</div><div class="value"><span class="change ${wEmpEnd>=wOverall?'pos':'neg'}">${wOverall ? (wEmpEnd>=wOverall?'+':'')+((wEmpEnd/wOverall-1)*100).toFixed(1)+'%' : '—'}</span></div><div class="sub">${primaryLa}</div></div>
+    <div class="stat-card"><div class="label">CAGR</div><div class="value"><span class="change ${parseFloat(cagr)>=0?'pos':'neg'}">${cagr}%</span></div><div class="sub">Compound annual growth</div></div>
+    <div class="stat-card"><div class="label">Absolute change</div><div class="value">${wOverall ? (wEmpEnd-wOverall>=0?'+':'')+(wEmpEnd-wOverall).toLocaleString() : '—'}</div><div class="sub">Jobs added/lost ${baseYear}–${latestYear}</div></div>
+  `;
+
+  mkChart('growthCompChart', { type: 'bar',
+    data: { labels: codes, datasets: [
+      { label: primaryLa, data: wGrowths, backgroundColor: codes.map((_,i) => wGrowths[i] === null ? '#ccc' : wGrowths[i] >= 0 ? PALETTE[0] : '#e74c3c'), borderRadius: 3 },
+      { label: 'National', data: natGrowths, backgroundColor: '#ccc', borderRadius: 3 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10 } }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[ctx[0].label] || ctx[0].label, label: ctx => `${ctx.dataset.label}: ${ctx.raw !== null ? (ctx.raw >= 0 ? '+' : '') + ctx.raw + '%' : 'base <50'}` } } }, scales: pctScales() }
+  });
+
+  // CAGR chart
+  const cagrs = codes.map(c => {
+    const b = getEmp(primaryLa, c, baseYear), e = getEmp(primaryLa, c, latestYear);
+    return b && n > 0 ? +((((e/b)**(1/n))-1)*100).toFixed(2) : null;
+  });
+  mkChart('growthCagrChart', { type: 'bar',
+    data: { labels: codes, datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3 }]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[ctx[0].label] || ctx[0].label, label: ctx => ctx.raw !== null ? `CAGR: ${ctx.raw}%` : 'base <50' } } }, scales: { ...baseScales, y: { ...baseScales.y, ticks: { ...baseScales.y.ticks, callback: v => v + '%' } } } }
+  });
+
+  // Growth rankings
+  const allLas = Object.keys(CORE.meta.la_regions);
+  const ranks = allLas.map(la => {
+    const b = getSelectedEmp(la, baseYear), e = getSelectedEmp(la, latestYear);
+    return { la, base: b, end: e, pct: b >= 50 ? +((e/b-1)*100).toFixed(1) : null };
+  }).filter(x => x.pct !== null).sort((a,b) => b.pct - a.pct);
+
+  const pRank = ranks.findIndex(x => x.la === primaryLa) + 1;
+  const show = ranks.slice(0, 20);
+  if (!show.find(x => x.la === primaryLa) && ranks.find(x => x.la === primaryLa)) show.push(ranks.find(x => x.la === primaryLa));
+  compLas.forEach(la => { const r = ranks.find(x => x.la === la); if (r && !show.find(x => x.la === la)) show.push(r); });
+
+  document.getElementById('growthRankTable').innerHTML = `
+    <table class="rank-table">
+      <thead><tr><th style="text-align:right">#</th><th>LA</th><th>Region</th><th>Base emp (${baseYear})</th><th>Latest emp (${latestYear})</th><th>Growth</th></tr></thead>
+      <tbody>${show.map(x => {
+        const rank = ranks.indexOf(x) + 1;
+        const isP = x.la === primaryLa, isC = compLas.includes(x.la);
+        return `<tr class="${isP?'highlight':isC?'comp':''}">
+          <td class="rank-num">${rank}</td>
+          <td>${x.la}</td>
+          <td style="color:#888;font-size:11px">${CORE.meta.la_regions[x.la]||''}</td>
+          <td>${x.base.toLocaleString()}</td>
+          <td>${x.end.toLocaleString()}</td>
+          <td class="${x.pct>=0?'pos':'neg'}">${x.pct>=0?'+':''}${x.pct}%</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+    <div style="font-size:11px;color:#999;margin-top:6px">${primaryLa} ranks ${pRank} of ${ranks.length} (areas with ≥50 employees at ${baseYear}). Top 20 shown.</div>
+  `;
+}
+
+function showNoData(containerId) {
+  document.getElementById(containerId).innerHTML = `<div class="no-data"><div class="no-data-icon">📊</div><p>Select SIC codes to see data</p></div>`;
+}
+
+// ============================================================
+//  BOOT
+// ============================================================
+loadData().catch(err => {
+  document.getElementById('loadingMsg').textContent = 'Error loading data: ' + err.message;
+});
+</script>
+</body>
+</html>
