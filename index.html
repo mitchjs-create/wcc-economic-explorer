@@ -70,8 +70,14 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
 
 /* SIC selector */
 .sic-search{width:100%;padding:6px 8px;border:1px solid var(--grey-300);border-radius:var(--radius);font-size:12px;margin-bottom:8px}
-.sic-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--magenta);margin:8px 0 4px;padding-top:4px;border-top:1px solid var(--grey-200)}
+.sic-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--magenta);margin:8px 0 4px;padding-top:4px;border-top:1px solid var(--grey-200);display:flex;align-items:center;gap:3px;flex-wrap:wrap}
 .sic-section-label:first-child{border-top:none;margin-top:0}
+.sec-select{cursor:pointer;padding:0 3px;border-radius:3px}
+.sec-select:hover{background:var(--magenta);color:white}
+.sec-count{font-size:9px;color:var(--grey-400);font-weight:400;margin-left:auto;text-transform:none;letter-spacing:0}
+.div-selectable{cursor:pointer;padding:1px 4px;border-radius:3px;transition:all .1s}
+.div-selectable:hover{background:var(--teal);color:white}
+.div-sel-count{font-size:9px;color:var(--grey-400);margin-left:auto}
 .sic-item{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;cursor:pointer}
 .sic-item:hover{background:var(--grey-100)}
 .sic-item input{flex-shrink:0;accent-color:var(--magenta)}
@@ -220,13 +226,7 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
   <!-- SIC codes -->
   <div class="sidebar-section" style="flex:1">
     <h3>SIC codes</h3>
-    <div class="sic-quick">
-      <button onclick="selectPreset('lifesciences')">Life sciences</button>
-      <button onclick="selectPreset('finance')">Finance</button>
-      <button onclick="selectPreset('ict')">ICT</button>
-      <button onclick="selectPreset('construction')">Construction</button>
-      <button onclick="clearSic()">Clear all</button>
-    </div>
+    <div class="sic-quick" id="sicQuickBtns"></div>
     <input type="text" class="sic-search" id="sicSearch" placeholder="Search SIC codes or descriptions..." oninput="filterSic(this.value)">
     <div id="selectedSicSummary" class="selected-summary"></div>
     <div id="sicTree" class="sic-tree" style="max-height:calc(100vh - 480px);overflow-y:auto;padding-right:4px"></div>
@@ -392,6 +392,17 @@ const PRESETS = {
   ict: ['58110','58120','58130','58141','58142','58190','58210','58290','59111','59112','59113','59114','59120','59130','59140','59200','60100','60200','61100','61200','61300','61900','62011','62012','62020','62030','62090','63110','63120','63910','63990'],
   construction: ['41100','41201','41202','42110','42120','42130','42210','42220','42910','42990','43110','43120','43130','43210','43220','43290','43310','43320','43330','43341','43342','43390','43910','43991','43999'],
 };
+
+// Section letter -> division range for select-all
+const SECTION_LABELS = {
+  'A':'Agriculture, forestry & fishing','B':'Mining & quarrying','C':'Manufacturing',
+  'D':'Electricity & gas','E':'Water & waste','F':'Construction',
+  'G':'Wholesale & retail','H':'Transportation & storage','I':'Accommodation & food',
+  'J':'Information & communication','K':'Financial & insurance','L':'Real estate',
+  'M':'Professional, scientific & technical','N':'Administrative & support',
+  'O':'Public administration','P':'Education','Q':'Human health & social work',
+  'R':'Arts & entertainment','S':'Other services','T':'Households'
+};
 const GVA_YEARS_RANGE = Array.from({length:24}, (_,i) => 2000+i);
 const BRES_YEARS = Array.from({length:10}, (_,i) => 2015+i);
 
@@ -422,7 +433,6 @@ function init() {
   buildPrimaryLaSelect();
   buildSicTree();
   selectPreset('lifesciences');
-  addCompArea('Camden');
   document.getElementById('loading').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   updateAll();
@@ -460,15 +470,21 @@ function buildSicTree() {
   Object.entries(sections).forEach(([sec, [divRange, secDesc]]) => {
     const divs = (divsBySection[sec] || []).filter(d => codesByDiv[d] && codesByDiv[d].length > 0);
     if (!divs.length) return;
-    html += `<div class="sic-section-label">${sec} — ${secDesc}</div>`;
+    const allSecCodes = divs.flatMap(d => (codesByDiv[d] || []).map(c => c.code));
+    html += `<div class="sic-section-label">
+      <span class="sec-select" onclick="toggleSection('${sec}')" title="Select/deselect all in ${sec}">${sec}</span>
+      <span style="cursor:pointer;user-select:none" onclick="toggleSection('${sec}')" title="Select/deselect all"> — ${secDesc}</span>
+      <span class="sec-count" id="seccount_${sec}"></span>
+    </div>`;
     divs.sort().forEach(div => {
       const codes = codesByDiv[div] || [];
       if (!codes.length) return;
       html += `<div class="division" id="div_${div}">
-        <div class="division-header" onclick="toggleDiv('${div}')">
-          <span class="div-toggle">▶</span>
-          <span class="div-code">${div}</span>
-          <span class="div-desc">${codes[0]?.desc?.slice(0,40) || ''}...</span>
+        <div class="division-header">
+          <span class="div-toggle" onclick="toggleDiv('${div}')">▶</span>
+          <span class="div-code div-selectable" onclick="toggleDivCodes('${div}')" title="Select/deselect all in division ${div}">${div}</span>
+          <span class="div-desc" onclick="toggleDiv('${div}')">${codes[0]?.desc?.slice(0,40) || ''}...</span>
+          <span class="div-sel-count" id="divcount_${div}"></span>
         </div>
         <div class="division-children" id="children_${div}">
           ${codes.map(c => `
@@ -481,6 +497,24 @@ function buildSicTree() {
     });
   });
   tree.innerHTML = html;
+
+  // Build quick-select buttons: themed presets + all sections
+  const quickEl = document.getElementById('sicQuickBtns');
+  let btnHtml = `
+    <button onclick="selectPreset('lifesciences')" style="background:var(--magenta-light);border-color:var(--magenta);color:var(--magenta)">★ Life sciences</button>
+    <button onclick="selectPreset('finance')">Finance (K)</button>
+    <button onclick="selectPreset('ict')">ICT (J)</button>
+    <button onclick="selectPreset('construction')">Construction (F)</button>
+    <div style="width:100%;height:1px;background:var(--grey-200);margin:4px 0"></div>`;
+  Object.entries(sections).forEach(([sec, [divRange, secDesc]]) => {
+    const divs = (divsBySection[sec] || []).filter(d => codesByDiv[d] && codesByDiv[d].length > 0);
+    if (!divs.length) return;
+    const label = SECTION_LABELS[sec] || secDesc;
+    btnHtml += `<button onclick="toggleSection('${sec}')" id="secbtn_${sec}">${sec} — ${label.slice(0,22)}</button>`;
+  });
+  btnHtml += `<div style="width:100%;height:1px;background:var(--grey-200);margin:4px 0"></div>
+    <button onclick="clearSic()" style="color:#c0392b;border-color:#c0392b">✕ Clear all</button>`;
+  quickEl.innerHTML = btnHtml;
 }
 
 function toggleDiv(div) {
@@ -489,6 +523,61 @@ function toggleDiv(div) {
   const toggle = header.querySelector('.div-toggle');
   children.classList.toggle('open');
   toggle.textContent = children.classList.contains('open') ? '▼' : '▶';
+}
+
+function toggleDivCodes(div) {
+  const codes = (HIER.codes_by_div[div] || []).map(c => c.code).filter(c => BRES[c]);
+  if (!codes.length) return;
+  const allOn = codes.every(c => selectedSics.has(c));
+  codes.forEach(c => allOn ? selectedSics.delete(c) : selectedSics.add(c));
+  // Open the division to show selection
+  const children = document.getElementById(`children_${div}`);
+  if (children && !allOn) {
+    children.classList.add('open');
+    children.previousElementSibling.querySelector('.div-toggle').textContent = '▼';
+  }
+  syncCheckboxes();
+  updateSicSummary();
+  updateAll();
+}
+
+function toggleSection(sec) {
+  const sectionForDiv = HIER.section_for_div;
+  const codesByDiv = HIER.codes_by_div;
+  const divs = Object.entries(sectionForDiv).filter(([,s]) => s === sec).map(([d]) => d);
+  const codes = divs.flatMap(d => (codesByDiv[d] || []).map(c => c.code)).filter(c => BRES[c]);
+  if (!codes.length) return;
+  const allOn = codes.every(c => selectedSics.has(c));
+  codes.forEach(c => allOn ? selectedSics.delete(c) : selectedSics.add(c));
+  syncCheckboxes();
+  updateSicSummary();
+  updateAll();
+}
+
+function syncCheckboxes() {
+  document.querySelectorAll('#sicTree input[type=checkbox]').forEach(cb => {
+    cb.checked = selectedSics.has(cb.value);
+  });
+  // Update division counts
+  Object.keys(HIER.codes_by_div).forEach(div => {
+    const codes = (HIER.codes_by_div[div] || []).map(c => c.code).filter(c => BRES[c]);
+    const sel = codes.filter(c => selectedSics.has(c)).length;
+    const el = document.getElementById(`divcount_${div}`);
+    if (el) el.textContent = sel > 0 ? `${sel}/${codes.length}` : '';
+  });
+  // Update section counts
+  const sectionForDiv = HIER.section_for_div;
+  const codesByDiv = HIER.codes_by_div;
+  const secCounts = {};
+  selectedSics.forEach(c => {
+    const div = c.slice(0,2);
+    const sec = sectionForDiv[div];
+    if (sec) secCounts[sec] = (secCounts[sec] || 0) + 1;
+  });
+  Object.keys(SECTION_LABELS).forEach(sec => {
+    const el = document.getElementById(`seccount_${sec}`);
+    if (el) el.textContent = secCounts[sec] ? `${secCounts[sec]} selected` : '';
+  });
 }
 
 function filterSic(query) {
@@ -554,6 +643,7 @@ function updateComp() {
 function toggleSic(code) {
   if (selectedSics.has(code)) selectedSics.delete(code);
   else selectedSics.add(code);
+  syncCheckboxes();
   updateSicSummary();
   updateAll();
 }
@@ -561,13 +651,7 @@ function toggleSic(code) {
 function selectPreset(name) {
   selectedSics.clear();
   const codes = PRESETS[name] || [];
-  codes.forEach(c => {
-    if (BRES[c]) selectedSics.add(c);
-  });
-  // Update checkboxes
-  document.querySelectorAll('#sicTree input[type=checkbox]').forEach(cb => {
-    cb.checked = selectedSics.has(cb.value);
-  });
+  codes.forEach(c => { if (BRES[c]) selectedSics.add(c); });
   // Open relevant divisions
   selectedSics.forEach(c => {
     const div2 = c.slice(0,2);
@@ -577,13 +661,14 @@ function selectPreset(name) {
       children.previousElementSibling.querySelector('.div-toggle').textContent = '▼';
     }
   });
+  syncCheckboxes();
   updateSicSummary();
   updateAll();
 }
 
 function clearSic() {
   selectedSics.clear();
-  document.querySelectorAll('#sicTree input[type=checkbox]').forEach(cb => cb.checked = false);
+  syncCheckboxes();
   updateSicSummary();
   updateAll();
 }
