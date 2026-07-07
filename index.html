@@ -164,11 +164,11 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
 /* GVA method note */
 .breakdown-legend{display:flex;gap:16px;align-items:center;margin-bottom:10px;font-size:11px;color:var(--grey-600)}
 .leg-swatch{width:16px;height:12px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
-.sector-row{display:grid;grid-template-columns:220px 1fr 90px 72px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--grey-100)}
+.sector-row{display:grid;grid-template-columns:260px 1fr 90px 72px;gap:10px;align-items:start;padding:8px 0;border-bottom:1px solid var(--grey-100)}
 .sector-row:last-child{border-bottom:none}
-.sector-row-header{display:grid;grid-template-columns:220px 1fr 90px 72px;gap:10px;padding:4px 0 8px;border-bottom:2px solid var(--grey-200);margin-bottom:2px}
+.sector-row-header{display:grid;grid-template-columns:260px 1fr 90px 72px;gap:10px;padding:4px 0 8px;border-bottom:2px solid var(--grey-200);margin-bottom:2px}
 .sector-row-header div{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--grey-600)}
-.sec-name{font-size:12px;font-weight:500;color:var(--navy);line-height:1.3}
+.sec-name{font-size:12px;font-weight:500;color:var(--navy);line-height:1.3;word-wrap:break-word}
 .sec-sic{font-size:10px;color:var(--grey-500);margin-top:2px}
 .bar-area{display:flex;flex-direction:column;gap:3px}
 .bar-track{display:flex;align-items:center;height:28px;background:var(--grey-100);border-radius:4px;overflow:hidden;position:relative}
@@ -422,6 +422,7 @@ let empMode = 'combined', gvaMode = 'stacked';
 let charts = {};
 
 let activePreset = 'lifesciences';
+let breakdownSort = 'default'; // 'default' | 'rank-asc' | 'rank-desc' | 'pct-asc' | 'pct-desc'
 const PALETTE = ['#C0005A','#1D5F7A','#196B24','#E97132','#0F9ED5','#96607D','#4EA72E','#0E2841','#A02B93','#E97132'];
 const PRESETS = {
   lifesciences: ['21100','21200','26600','32500','46460','71200','72110','72190'],
@@ -523,7 +524,7 @@ function buildSicTree() {
         <div class="division-header">
           <span class="div-toggle" onclick="toggleDiv('${div}')">▶</span>
           <span class="div-code div-selectable" onclick="toggleDivCodes('${div}')" title="Select/deselect all in division ${div}">${div}</span>
-          <span class="div-desc" onclick="toggleDiv('${div}')">${codes[0]?.desc?.slice(0,40) || ''}...</span>
+          <span class="div-desc" onclick="toggleDiv('${div}')">${codes[0]?.desc || ''}</span>
           <span class="div-sel-count" id="divcount_${div}"></span>
         </div>
         <div class="division-children" id="children_${div}">
@@ -1076,6 +1077,19 @@ function getAllLaAggForKey(key, year) {
   return result;
 }
 
+function cycleBreakdownSort(col) {
+  if (col === 'rank') {
+    if (breakdownSort === 'rank-asc') breakdownSort = 'rank-desc';
+    else if (breakdownSort === 'rank-desc') breakdownSort = 'default';
+    else breakdownSort = 'rank-asc';
+  } else {
+    if (breakdownSort === 'pct-asc') breakdownSort = 'pct-desc';
+    else if (breakdownSort === 'pct-desc') breakdownSort = 'default';
+    else breakdownSort = 'pct-asc';
+  }
+  renderBreakdownChart();
+}
+
 function renderBreakdownChart() {
   const container = document.getElementById('overviewBreakdownDiv');
   if (!container) return;
@@ -1111,9 +1125,20 @@ function renderBreakdownChart() {
     const leaderName = !isTop && topEntry ? topEntry[0] : null;
     const leaderEmp = !isTop && topEntry ? topEntry[1] : 0;
     const desc = getAggDesc(key);
-    const shortDesc = desc.length > 52 ? desc.slice(0,50)+'…' : desc;
-    return { key, wmEmp, rank, total, pct, leaderName, leaderEmp, shortDesc, nLas: sorted.length };
+    return { key, wmEmp, rank, total, pct, leaderName, leaderEmp, desc, nLas: sorted.length };
   });
+
+  // Apply sort
+  if (breakdownSort === 'rank-asc') rowData.sort((a,b) => a.rank - b.rank);
+  else if (breakdownSort === 'rank-desc') rowData.sort((a,b) => b.rank - a.rank);
+  else if (breakdownSort === 'pct-asc') rowData.sort((a,b) => parseFloat(a.pct) - parseFloat(b.pct));
+  else if (breakdownSort === 'pct-desc') rowData.sort((a,b) => parseFloat(b.pct) - parseFloat(a.pct));
+  // default: already sorted by WM employment desc
+
+  const rankSortIcon = breakdownSort === 'rank-asc' ? ' ↑' : breakdownSort === 'rank-desc' ? ' ↓' : ' ↕';
+  const pctSortIcon = breakdownSort === 'pct-asc' ? ' ↑' : breakdownSort === 'pct-desc' ? ' ↓' : ' ↕';
+  const rankActive = breakdownSort.startsWith('rank') ? 'color:var(--magenta)' : '';
+  const pctActive = breakdownSort.startsWith('pct') ? 'color:var(--magenta)' : '';
 
   let out = `
     <div class="breakdown-legend">
@@ -1123,11 +1148,11 @@ function renderBreakdownChart() {
     <div class="sector-row-header">
       <div>Sector</div>
       <div>Employment (${latestYear})</div>
-      <div>UK rank</div>
-      <div>% of UK</div>
+      <div onclick="cycleBreakdownSort('rank')" style="cursor:pointer;user-select:none;${rankActive}">UK rank${rankSortIcon}</div>
+      <div onclick="cycleBreakdownSort('pct')" style="cursor:pointer;user-select:none;${pctActive}">% of UK${pctSortIcon}</div>
     </div>`;
 
-  rowData.forEach(({ key, wmEmp, rank, pct, leaderName, leaderEmp, shortDesc, nLas }) => {
+  rowData.forEach(({ key, wmEmp, rank, pct, leaderName, leaderEmp, desc, nLas }) => {
     const maxEmp = Math.max(wmEmp, leaderEmp || 0) || 1;
     const wmW = (wmEmp / maxEmp * 100).toFixed(1);
     const leaderW = leaderEmp ? Math.max(0, ((leaderEmp - wmEmp) / maxEmp * 100)).toFixed(1) : 0;
@@ -1137,7 +1162,7 @@ function renderBreakdownChart() {
     out += `
       <div class="sector-row">
         <div>
-          <div class="sec-name">${shortDesc}</div>
+          <div class="sec-name">${desc}</div>
           <div class="sec-sic">SIC ${key}</div>
         </div>
         <div class="bar-area">
@@ -1222,7 +1247,7 @@ function renderEmpTrendChart() {
   } else if (empMode === 'split') {
     const codes = Array.from(selectedSics);
     datasets = codes.map((c, i) => ({
-      label: `${c} — ${(CORE.bres_meta.sic_desc[c]||'').slice(0,35)}`,
+      label: `${c} — ${CORE.bres_meta.sic_desc[c]||c}`,
       data: bresYears.map(y => getEmp(primaryLa, c, y)),
       borderColor: PALETTE[i % PALETTE.length], backgroundColor: 'transparent',
       borderWidth: 1.5, pointRadius: 2, tension: 0.3
