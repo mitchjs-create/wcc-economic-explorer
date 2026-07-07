@@ -162,6 +162,27 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
 .tab-panel.active{display:block}
 
 /* GVA method note */
+.breakdown-legend{display:flex;gap:16px;align-items:center;margin-bottom:10px;font-size:11px;color:var(--grey-600)}
+.leg-swatch{width:16px;height:12px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+.sector-row{display:grid;grid-template-columns:220px 1fr 90px 72px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--grey-100)}
+.sector-row:last-child{border-bottom:none}
+.sector-row-header{display:grid;grid-template-columns:220px 1fr 90px 72px;gap:10px;padding:4px 0 8px;border-bottom:2px solid var(--grey-200);margin-bottom:2px}
+.sector-row-header div{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--grey-600)}
+.sec-name{font-size:12px;font-weight:500;color:var(--navy);line-height:1.3}
+.sec-sic{font-size:10px;color:var(--grey-500);margin-top:2px}
+.bar-area{display:flex;flex-direction:column;gap:3px}
+.bar-track{display:flex;align-items:center;height:28px;background:var(--grey-100);border-radius:4px;overflow:hidden;position:relative}
+.bar-wm{background:var(--magenta);height:100%;display:flex;align-items:center;padding-left:6px;border-radius:4px 0 0 4px;min-width:2px;position:relative;z-index:1}
+.bar-wm-label{font-size:11px;font-weight:700;color:white;white-space:nowrap}
+.bar-leader{background:#BBBBBB;height:100%;border-radius:0 4px 4px 0;position:absolute;top:0;right:0}
+.bar-sub{font-size:10px;color:var(--grey-500);margin-top:1px}
+.rank-badge{display:inline-block;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap}
+.rank-1{background:var(--magenta);color:white}
+.rank-2{background:var(--magenta-light);color:var(--magenta);border:1px solid var(--magenta)}
+.rank-other{background:var(--grey-200);color:var(--grey-600)}
+.pct-val{font-size:15px;font-weight:700;color:var(--navy);display:block;line-height:1.2}
+.pct-sub{font-size:10px;color:var(--grey-500)}
+.breakdown-empty{padding:40px 20px;text-align:center;color:var(--grey-400);font-size:12px}
 .method-note{font-size:10px;color:var(--grey-500);font-style:italic;margin-top:4px}
 .info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--grey-300);color:var(--grey-600);font-size:9px;font-weight:700;cursor:help;margin-left:4px;flex-shrink:0;vertical-align:middle;position:relative}
 .info-icon:hover .tooltip{display:block}
@@ -285,7 +306,7 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
           </select>
         </div>
       </div>
-      <div class="chart-wrap" style="height:260px"><canvas id="overviewBreakdownChart"></canvas></div>
+      <div id="overviewBreakdownDiv" style="overflow-y:auto;max-height:480px;padding-right:4px"></div>
     </div>
   </div>
 
@@ -1008,7 +1029,6 @@ function renderOverview() {
 // ============================================================
 // ── SIC aggregation helpers ──────────────────────────────────────────────────
 function aggregateEmpToLevel(la, year, level) {
-  // Aggregate BRES 5-digit employment to a given digit level (2,3,4,5)
   const agg = {};
   selectedSics.forEach(code => {
     const key = code.slice(0, level);
@@ -1018,94 +1038,130 @@ function aggregateEmpToLevel(la, year, level) {
 }
 
 function getAutoLevel() {
-  // Auto: one level up from most common depth of selected codes
-  // If all 5-digit selected, go to 4-digit groups. If 2-digit selected, stay at 2.
   const codes = Array.from(selectedSics);
   if (!codes.length) return 5;
-  // Check if codes collapse meaningfully at 4-digit
-  const keys4 = new Set(codes.map(c => c.slice(0,4)));
-  const keys3 = new Set(codes.map(c => c.slice(0,3)));
   const keys2 = new Set(codes.map(c => c.slice(0,2)));
-  if (keys2.size < codes.length && keys2.size > 1) return 4;
-  if (keys3.size < codes.length) return 4;
+  const keys3 = new Set(codes.map(c => c.slice(0,3)));
+  const keys4 = new Set(codes.map(c => c.slice(0,4)));
+  if (keys2.size < codes.length && keys2.size >= 2) return 2;
+  if (keys3.size < codes.length && keys3.size >= 2) return 3;
   if (keys4.size < codes.length) return 4;
   return 5;
 }
 
 function getAggDesc(key) {
-  // Try to get a description for an aggregated key
-  // Check 5-digit first, then look up in hierarchy
   if (CORE.bres_meta.sic_desc[key]) return CORE.bres_meta.sic_desc[key];
-  // Find first 5-digit code starting with this prefix
   const match = Object.keys(CORE.bres_meta.sic_desc).find(c => c.startsWith(key));
-  if (match) {
-    const full = CORE.bres_meta.sic_desc[match];
-    return full.length > 45 ? full.slice(0,45)+'…' : full;
-  }
+  if (match) return CORE.bres_meta.sic_desc[match];
+  const div = HIER.codes_by_div[key];
+  if (div && div.length > 0) return div[0].desc;
   return key;
 }
 
-function renderBreakdownChart() {
-  if (!BRES || selectedSics.size === 0) return;
-  const levelSel = document.getElementById('breakdownLevel');
-  const areaSel = document.getElementById('breakdownArea');
-  if (!levelSel) return;
+function fmtK(n) {
+  if (n >= 1000) return (n/1000).toFixed(n >= 10000 ? 0 : 1) + 'k';
+  return n.toLocaleString();
+}
 
-  const levelStr = levelSel.value;
+function getAllLaAggForKey(key, year) {
+  const result = {};
+  // Iterate BRES data — find all 5-digit codes starting with key that are selected
+  const relevantCodes = Array.from(selectedSics).filter(c => c.startsWith(key));
+  relevantCodes.forEach(code => {
+    if (!BRES[code]) return;
+    Object.entries(BRES[code]).forEach(([la, vals]) => {
+      const idx = BRES_YEARS.indexOf(Math.min(year, 2024));
+      const v = idx >= 0 ? (vals[idx] || 0) : 0;
+      result[la] = (result[la] || 0) + v;
+    });
+  });
+  return result;
+}
+
+function renderBreakdownChart() {
+  const container = document.getElementById('overviewBreakdownDiv');
+  if (!container) return;
+  if (!BRES || selectedSics.size === 0) {
+    container.innerHTML = '<div class="breakdown-empty">Select SIC codes to see breakdown</div>';
+    return;
+  }
+
+  const levelSel = document.getElementById('breakdownLevel');
+  const levelStr = levelSel ? levelSel.value : 'auto';
   const level = levelStr === 'auto' ? getAutoLevel() : parseInt(levelStr);
-  const showCompare = areaSel && areaSel.value === 'compare';
 
   const bresYears = getBresYearRange();
   const latestYear = bresYears[bresYears.length - 1];
-  const areas = showCompare ? [primaryLa, ...compLas] : [primaryLa];
 
-  // Aggregate
-  const allKeys = new Set();
-  const areaAgg = {};
-  areas.forEach(la => {
-    areaAgg[la] = aggregateEmpToLevel(la, latestYear, level);
-    Object.keys(areaAgg[la]).forEach(k => allKeys.add(k));
+  const wmAgg = aggregateEmpToLevel(primaryLa, latestYear, level);
+  const sortedKeys = Object.keys(wmAgg).sort((a,b) => (wmAgg[b]||0) - (wmAgg[a]||0));
+
+  if (!sortedKeys.length) {
+    container.innerHTML = '<div class="breakdown-empty">No employment data at this granularity level</div>';
+    return;
+  }
+
+  const rowData = sortedKeys.map(key => {
+    const wmEmp = wmAgg[key] || 0;
+    const allLaEmp = getAllLaAggForKey(key, latestYear);
+    const sorted = Object.entries(allLaEmp).sort((a,b) => b[1]-a[1]);
+    const rank = sorted.findIndex(([la]) => la === primaryLa) + 1 || sorted.length + 1;
+    const total = sorted.reduce((s,[,v]) => s+v, 0);
+    const pct = total ? (wmEmp/total*100).toFixed(1) : '0.0';
+    const topEntry = sorted[0];
+    const isTop = topEntry && topEntry[0] === primaryLa;
+    const leaderName = !isTop && topEntry ? topEntry[0] : null;
+    const leaderEmp = !isTop && topEntry ? topEntry[1] : 0;
+    const desc = getAggDesc(key);
+    const shortDesc = desc.length > 52 ? desc.slice(0,50)+'…' : desc;
+    return { key, wmEmp, rank, total, pct, leaderName, leaderEmp, shortDesc, nLas: sorted.length };
   });
 
-  const sortedKeys = Array.from(allKeys).sort((a,b) => (areaAgg[primaryLa][b]||0) - (areaAgg[primaryLa][a]||0));
-  const labels = sortedKeys.map(k => k);
-  const shortDescs = sortedKeys.map(k => getAggDesc(k).slice(0,30));
+  let out = `
+    <div class="breakdown-legend">
+      <span><span class="leg-swatch" style="background:var(--magenta)"></span>${primaryLa}</span>
+      <span><span class="leg-swatch" style="background:#BBBBBB"></span>Leading comparator LA</span>
+    </div>
+    <div class="sector-row-header">
+      <div>Sector</div>
+      <div>Employment (${latestYear})</div>
+      <div>UK rank</div>
+      <div>% of UK</div>
+    </div>`;
 
-  const datasets = areas.map((la, i) => ({
-    label: la,
-    data: sortedKeys.map(k => areaAgg[la][k] || 0),
-    backgroundColor: PALETTE[i % PALETTE.length],
-    borderRadius: 3
-  }));
+  rowData.forEach(({ key, wmEmp, rank, pct, leaderName, leaderEmp, shortDesc, nLas }) => {
+    const maxEmp = Math.max(wmEmp, leaderEmp || 0) || 1;
+    const wmW = (wmEmp / maxEmp * 100).toFixed(1);
+    const leaderW = leaderEmp ? Math.max(0, ((leaderEmp - wmEmp) / maxEmp * 100)).toFixed(1) : 0;
+    const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : 'rank-other';
+    const rankLabel = rank === 1 ? '#1 in UK' : rank === 2 ? '#2 in UK' : rank <= 5 ? `#${rank} in UK` : `${rank}${['th','st','nd','rd'][Math.min(rank%10,3)||0]||'th'} in UK`;
 
-  mkChart('overviewBreakdownChart', {
-    type: 'bar',
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: areas.length > 1, labels: { font: { size: 10 }, boxWidth: 10 } },
-        tooltip: {
-          callbacks: {
-            title: ctx => {
-              const k = ctx[0].label;
-              return k + ' — ' + getAggDesc(k);
-            },
-            label: ctx => ctx.dataset.label + ': ' + ctx.raw.toLocaleString() + ' jobs'
-          }
-        }
-      },
-      scales: {
-        x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false }, border: { color: '#ccc' } },
-        y: {
-          title: { display: true, text: 'Employment (jobs)', color: tickColor, font: { size: 10 } },
-          ticks: { color: tickColor, font: { size: 10 }, callback: v => v.toLocaleString() },
-          grid: { color: gridColor }, border: { color: '#ccc' }
-        }
-      }
-    }
+    out += `
+      <div class="sector-row">
+        <div>
+          <div class="sec-name">${shortDesc}</div>
+          <div class="sec-sic">SIC ${key}</div>
+        </div>
+        <div class="bar-area">
+          <div class="bar-track">
+            <div class="bar-wm" style="width:${wmW}%">
+              <span class="bar-wm-label">${fmtK(wmEmp)}</span>
+            </div>
+            ${leaderName ? `<div class="bar-leader" style="width:${leaderW}%"></div>` : ''}
+          </div>
+          ${leaderName ? `<div class="bar-sub">${fmtK(leaderEmp)} ${leaderName}</div>` : ''}
+        </div>
+        <div><span class="rank-badge ${rankClass}">${rankLabel}</span></div>
+        <div>
+          <span class="pct-val">${pct}%</span>
+          <span class="pct-sub">of UK total</span>
+        </div>
+      </div>`;
   });
+
+  container.innerHTML = out;
 }
+
 
 function renderEmployment() {
   if (!BRES || selectedSics.size === 0) return;
