@@ -470,9 +470,14 @@ function init() {
   buildYearSelectors();
   buildPrimaryLaSelect();
   buildSicTree();
-  // Default: select all 1-digit sections (all codes)
-  Object.keys(HIER.sections).forEach(sec => toggleSection(sec));
+  // Default: select all codes across all sections — batch without triggering updateAll each time
+  Object.entries(HIER.section_for_div).forEach(([div, sec]) => {
+    (HIER.codes_by_div[div] || []).forEach(c => selectedSics.add(c.code));
+  });
   activePreset = null;
+  syncCheckboxes();
+  updatePresetButtons();
+  updateSicSummary();
   document.getElementById('loading').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   updateAll();
