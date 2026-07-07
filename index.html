@@ -72,8 +72,9 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
 .sic-search{width:100%;padding:6px 8px;border:1px solid var(--grey-300);border-radius:var(--radius);font-size:12px;margin-bottom:8px}
 .sic-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--magenta);margin:8px 0 4px;padding-top:4px;border-top:1px solid var(--grey-200);display:flex;align-items:center;gap:3px;flex-wrap:wrap}
 .sic-section-label:first-child{border-top:none;margin-top:0}
-.sec-select{cursor:pointer;padding:0 3px;border-radius:3px}
-.sec-select:hover{background:var(--magenta);color:white}
+.sec-checkbox{accent-color:var(--magenta);width:13px;height:13px;cursor:pointer;flex-shrink:0}
+.sec-letter{font-weight:800;color:var(--magenta);min-width:14px}
+.sic-section-label label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--navy)}
 .sec-count{font-size:9px;color:var(--grey-400);font-weight:400;margin-left:auto;text-transform:none;letter-spacing:0}
 .div-selectable{cursor:pointer;padding:1px 4px;border-radius:3px;transition:all .1s}
 .div-selectable:hover{background:var(--teal);color:white}
@@ -399,6 +400,7 @@ let yearFrom = 2015, yearTo = 2024;
 let empMode = 'combined', gvaMode = 'stacked';
 let charts = {};
 
+let activePreset = 'lifesciences';
 const PALETTE = ['#C0005A','#1D5F7A','#196B24','#E97132','#0F9ED5','#96607D','#4EA72E','#0E2841','#A02B93','#E97132'];
 const PRESETS = {
   lifesciences: ['21100','21200','26600','32500','46460','71200','72110','72190'],
@@ -485,9 +487,12 @@ function buildSicTree() {
     const divs = (divsBySection[sec] || []).filter(d => codesByDiv[d] && codesByDiv[d].length > 0);
     if (!divs.length) return;
     const allSecCodes = divs.flatMap(d => (codesByDiv[d] || []).map(c => c.code));
-    html += `<div class="sic-section-label">
-      <span class="sec-select" onclick="toggleSection('${sec}')" title="Select/deselect all in ${sec}">${sec}</span>
-      <span style="cursor:pointer;user-select:none" onclick="toggleSection('${sec}')" title="Select/deselect all"> — ${secDesc}</span>
+    html += `<div class="sic-section-label" id="seclabel_${sec}">
+      <input type="checkbox" id="seccheck_${sec}" class="sec-checkbox" title="Select/deselect all codes in section ${sec}" onchange="toggleSection('${sec}')">
+      <label for="seccheck_${sec}" style="cursor:pointer;display:flex;align-items:center;gap:4px;flex:1">
+        <span class="sec-letter">${sec}</span>
+        <span>— ${secDesc}</span>
+      </label>
       <span class="sec-count" id="seccount_${sec}"></span>
     </div>`;
     divs.sort().forEach(div => {
@@ -515,16 +520,16 @@ function buildSicTree() {
   // Build quick-select buttons: themed presets + all sections
   const quickEl = document.getElementById('sicQuickBtns');
   let btnHtml = `
-    <button onclick="selectPreset('lifesciences')" style="background:var(--magenta-light);border-color:var(--magenta);color:var(--magenta)">★ Life sciences</button>
-    <button onclick="selectPreset('finance')">Finance (K)</button>
-    <button onclick="selectPreset('ict')">ICT (J)</button>
-    <button onclick="selectPreset('construction')">Construction (F)</button>
+    <button onclick="selectPreset('lifesciences')" data-preset="lifesciences" style="background:var(--magenta-light);border-color:var(--magenta);color:var(--magenta)">★ Life sciences</button>
+    <button onclick="selectPreset('finance')" data-preset="finance">Finance (K)</button>
+    <button onclick="selectPreset('ict')" data-preset="ict">ICT (J)</button>
+    <button onclick="selectPreset('construction')" data-preset="construction">Construction (F)</button>
     <div style="width:100%;height:1px;background:var(--grey-200);margin:4px 0"></div>`;
   Object.entries(sections).forEach(([sec, [divRange, secDesc]]) => {
     const divs = (divsBySection[sec] || []).filter(d => codesByDiv[d] && codesByDiv[d].length > 0);
     if (!divs.length) return;
     const label = SECTION_LABELS[sec] || secDesc;
-    btnHtml += `<button onclick="toggleSection('${sec}')" id="secbtn_${sec}">${sec} — ${label.slice(0,22)}</button>`;
+    btnHtml += `<button onclick="toggleSection('${sec}')" data-section="${sec}" id="secbtn_${sec}">${sec} — ${label.slice(0,22)}</button>`;
   });
   btnHtml += `<div style="width:100%;height:1px;background:var(--grey-200);margin:4px 0"></div>
     <button onclick="clearSic()" style="color:#c0392b;border-color:#c0392b">✕ Clear all</button>`;
@@ -540,7 +545,8 @@ function toggleDiv(div) {
 }
 
 function toggleDivCodes(div) {
-  const codes = (HIER.codes_by_div[div] || []).map(c => c.code).filter(c => BRES[c]);
+  activePreset = null;
+  const codes = (HIER.codes_by_div[div] || []).map(c => c.code);
   if (!codes.length) return;
   const allOn = codes.every(c => selectedSics.has(c));
   codes.forEach(c => allOn ? selectedSics.delete(c) : selectedSics.add(c));
@@ -550,16 +556,19 @@ function toggleDivCodes(div) {
     children.classList.add('open');
     children.previousElementSibling.querySelector('.div-toggle').textContent = '▼';
   }
+  activePreset = name;
   syncCheckboxes();
+  updatePresetButtons();
   updateSicSummary();
   updateAll();
 }
 
 function toggleSection(sec) {
+  activePreset = null;
   const sectionForDiv = HIER.section_for_div;
   const codesByDiv = HIER.codes_by_div;
   const divs = Object.entries(sectionForDiv).filter(([,s]) => s === sec).map(([d]) => d);
-  const codes = divs.flatMap(d => (codesByDiv[d] || []).map(c => c.code)).filter(c => BRES[c]);
+  const codes = divs.flatMap(d => (codesByDiv[d] || []).map(c => c.code));
   if (!codes.length) return;
   const allOn = codes.every(c => selectedSics.has(c));
   codes.forEach(c => allOn ? selectedSics.delete(c) : selectedSics.add(c));
@@ -568,18 +577,47 @@ function toggleSection(sec) {
   updateAll();
 }
 
+function updatePresetButtons() {
+  // Update quick-select button active states
+  document.querySelectorAll('#sicQuickBtns button[data-preset]').forEach(btn => {
+    const preset = btn.dataset.preset;
+    if (preset === activePreset) {
+      btn.style.background = 'var(--magenta-light)';
+      btn.style.borderColor = 'var(--magenta)';
+      btn.style.color = 'var(--magenta)';
+    } else {
+      btn.style.background = '';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+    }
+  });
+  // Update section buttons
+  const sectionForDiv = HIER.section_for_div;
+  const codesByDiv = HIER.codes_by_div;
+  document.querySelectorAll('#sicQuickBtns button[data-section]').forEach(btn => {
+    const sec = btn.dataset.section;
+    const divs = Object.entries(sectionForDiv).filter(([,s])=>s===sec).map(([d])=>d);
+    const codes = divs.flatMap(d=>(codesByDiv[d]||[]).map(c=>c.code));
+    const allOn = codes.length > 0 && codes.every(c => selectedSics.has(c));
+    const anyOn = codes.some(c => selectedSics.has(c));
+    btn.style.background = allOn ? 'var(--navy)' : anyOn ? 'var(--teal-light)' : '';
+    btn.style.color = allOn ? 'white' : anyOn ? 'var(--teal)' : '';
+    btn.style.borderColor = allOn ? 'var(--navy)' : anyOn ? 'var(--teal)' : '';
+  });
+}
+
 function syncCheckboxes() {
   document.querySelectorAll('#sicTree input[type=checkbox]').forEach(cb => {
     cb.checked = selectedSics.has(cb.value);
   });
   // Update division counts
   Object.keys(HIER.codes_by_div).forEach(div => {
-    const codes = (HIER.codes_by_div[div] || []).map(c => c.code).filter(c => BRES[c]);
+    const codes = (HIER.codes_by_div[div] || []).map(c => c.code);
     const sel = codes.filter(c => selectedSics.has(c)).length;
     const el = document.getElementById(`divcount_${div}`);
     if (el) el.textContent = sel > 0 ? `${sel}/${codes.length}` : '';
   });
-  // Update section counts
+  // Update section counts and checkboxes
   const sectionForDiv = HIER.section_for_div;
   const codesByDiv = HIER.codes_by_div;
   const secCounts = {};
@@ -589,8 +627,15 @@ function syncCheckboxes() {
     if (sec) secCounts[sec] = (secCounts[sec] || 0) + 1;
   });
   Object.keys(SECTION_LABELS).forEach(sec => {
-    const el = document.getElementById(`seccount_${sec}`);
-    if (el) el.textContent = secCounts[sec] ? `${secCounts[sec]} selected` : '';
+    const countEl = document.getElementById(`seccount_${sec}`);
+    const divs = Object.entries(sectionForDiv).filter(([,s])=>s===sec).map(([d])=>d);
+    const allCodes = divs.flatMap(d=>(codesByDiv[d]||[]).map(c=>c.code));
+    const selCount = secCounts[sec] || 0;
+    const allOn = allCodes.length > 0 && allCodes.every(c => selectedSics.has(c));
+    const anyOn = selCount > 0;
+    if (countEl) countEl.textContent = selCount > 0 ? `${selCount} selected` : '';
+    const cb = document.getElementById(`seccheck_${sec}`);
+    if (cb) { cb.checked = allOn; cb.indeterminate = anyOn && !allOn; }
   });
 }
 
@@ -657,7 +702,9 @@ function updateComp() {
 function toggleSic(code) {
   if (selectedSics.has(code)) selectedSics.delete(code);
   else selectedSics.add(code);
+  activePreset = null;
   syncCheckboxes();
+  updatePresetButtons();
   updateSicSummary();
   updateAll();
 }
@@ -665,7 +712,7 @@ function toggleSic(code) {
 function selectPreset(name) {
   selectedSics.clear();
   const codes = PRESETS[name] || [];
-  codes.forEach(c => { if (BRES[c]) selectedSics.add(c); });
+  codes.forEach(c => { selectedSics.add(c); });
   // Open relevant divisions
   selectedSics.forEach(c => {
     const div2 = c.slice(0,2);
@@ -681,8 +728,10 @@ function selectPreset(name) {
 }
 
 function clearSic() {
+  activePreset = null;
   selectedSics.clear();
   syncCheckboxes();
+  updatePresetButtons();
   updateSicSummary();
   updateAll();
 }
