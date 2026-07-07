@@ -470,7 +470,9 @@ function init() {
   buildYearSelectors();
   buildPrimaryLaSelect();
   buildSicTree();
-  selectPreset('lifesciences');
+  // Default: select all 1-digit sections (all codes)
+  Object.keys(HIER.sections).forEach(sec => toggleSection(sec));
+  activePreset = null;
   document.getElementById('loading').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   updateAll();
