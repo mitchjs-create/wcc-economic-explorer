@@ -934,21 +934,25 @@ function renderOverview() {
   const n = bresYears.length - 1;
   const cagr = (wEmpBase && n > 0) ? (((wEmp24/wEmpBase)**(1/n)-1)*100).toFixed(1) : '—';
 
-  // National comparisons
+  // National comparisons — skip if too many codes selected (perf guard)
   const allLas = Object.keys(CORE.meta.la_regions);
-  const natEmpBase = allLas.reduce((s,la) => s + getSelectedEmp(la, baseYear), 0);
-  const natEmp24 = allLas.reduce((s,la) => s + getSelectedEmp(la, latestYear), 0);
-  const natGrowth = natEmpBase ? ((natEmp24/natEmpBase-1)*100).toFixed(1) : '—';
-  const natCagr = (natEmpBase && n > 0) ? (((natEmp24/natEmpBase)**(1/n)-1)*100).toFixed(1) : '—';
+  let natEmpBase = 0, natEmp24 = 0, natGrowth = '—', natCagr = '—';
+  if (selectedSics.size <= 100) {
+    natEmpBase = allLas.reduce((s,la) => s + getSelectedEmp(la, baseYear), 0);
+    natEmp24 = allLas.reduce((s,la) => s + getSelectedEmp(la, latestYear), 0);
+    natGrowth = natEmpBase ? ((natEmp24/natEmpBase-1)*100).toFixed(1) : '—';
+    natCagr = (natEmpBase && n > 0) ? (((natEmp24/natEmpBase)**(1/n)-1)*100).toFixed(1) : '—';
+  }
 
-  // GVA % of London economy and UK sector
-  const londonLas = Object.keys(CORE.meta.la_regions).filter(la => CORE.meta.la_is_london[la]);
-  const londonGva = londonLas.reduce((s,la) => s + getTotalEstGva(la, Math.min(latestYear,2023)), 0);
-  const londonTotalGva = getGva(primaryLa, 'Total', Math.min(latestYear,2023)) !== null 
-    ? londonLas.reduce((s,la) => { const v = getGva(la,'Total',Math.min(latestYear,2023)); return s + (v||0); }, 0) : 0;
-  const gvaShareLondon = londonGva ? (wGva / londonGva * 100).toFixed(1) : '—';
-  const ukSectorGva = allLas.reduce((s,la) => s + getTotalEstGva(la, Math.min(latestYear,2023)), 0);
-  const gvaShareUk = ukSectorGva ? (wGva / ukSectorGva * 100).toFixed(1) : '—';
+  // GVA % of London economy and UK sector — skip if too many codes (perf)
+  let gvaShareLondon = '—', gvaShareUk = '—';
+  if (selectedSics.size <= 100) {
+    const londonLas = Object.keys(CORE.meta.la_regions).filter(la => CORE.meta.la_is_london[la]);
+    const londonGva = londonLas.reduce((s,la) => s + getTotalEstGva(la, Math.min(latestYear,2023)), 0);
+    const ukSectorGva = allLas.reduce((s,la) => s + getTotalEstGva(la, Math.min(latestYear,2023)), 0);
+    gvaShareLondon = londonGva ? (wGva / londonGva * 100).toFixed(1) : '—';
+    gvaShareUk = ukSectorGva ? (wGva / ukSectorGva * 100).toFixed(1) : '—';
+  }
 
   // Is GVA direct or estimated for this selection?
   const selectedCats = [...new Set(Array.from(selectedSics).map(c => getParentCat(c)).filter(Boolean))];
@@ -1106,6 +1110,20 @@ function renderBreakdownChart() {
   }
 
   const levelSel = document.getElementById('breakdownLevel');
+  const levelStrCheck = levelSel ? levelSel.value : 'auto';
+  const levelCheck = levelStrCheck === 'auto' ? getAutoLevel() : parseInt(levelStrCheck);
+  // Guard: if too many aggregated keys, warn rather than hang
+  const previewAgg = aggregateEmpToLevel(primaryLa, 2024, levelCheck);
+  const keyCount = Object.keys(previewAgg).length;
+  if (keyCount > 40) {
+    container.innerHTML = `<div class="breakdown-empty">
+      <div style="font-size:28px;margin-bottom:8px">📊</div>
+      <div style="font-weight:600;color:var(--navy);margin-bottom:6px">${keyCount} categories at this level</div>
+      <div>Narrow your selection or increase the granularity level to see breakdown detail.<br>
+      Try selecting a single section (e.g. K — Finance) or a specific division.</div>
+    </div>`;
+    return;
+  }
   const levelStr = levelSel ? levelSel.value : 'auto';
   const level = levelStr === 'auto' ? getAutoLevel() : parseInt(levelStr);
 
@@ -1373,6 +1391,11 @@ function renderRankings() {
   const baseYear = Math.max(yearFrom, 2015);
 
   let las = Object.keys(CORE.meta.la_regions);
+  if (selectedSics.size > 200) {
+    document.getElementById('rankStats').innerHTML = '';
+    document.getElementById('rankTableContainer').innerHTML = '<div class="no-data"><div class="no-data-icon">📊</div><p>Select fewer SIC codes (≤200) to see rankings</p></div>';
+    return;
+  }
   if (filter === 'london') las = las.filter(la => CORE.meta.la_is_london[la]);
   else if (filter === 'inner') las = las.filter(la => CORE.meta.la_is_inner[la]);
 
