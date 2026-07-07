@@ -943,7 +943,7 @@ function gvaScales() { return makeScales('GVA (£m, current prices)', v => '£' 
 //  OVERVIEW TAB
 // ============================================================
 function renderOverview() {
-  if (!BRES || selectedSics.size === 0) { showNoData('overviewStats'); return; }
+  if (!BRES || (selectedSics.size === 0 && !allSectorsMode)) { showNoData('overviewStats'); return; }
   const bresYears = getBresYearRange();
   const latestYear = bresYears[bresYears.length - 1];
   const baseYear = bresYears[0];
@@ -961,7 +961,7 @@ function renderOverview() {
   // National comparisons — skip if too many codes selected (perf guard)
   const allLas = Object.keys(CORE.meta.la_regions);
   let natEmpBase = 0, natEmp24 = 0, natGrowth = '—', natCagr = '—';
-  if (selectedSics.size <= 100) {
+  if (allSectorsMode || selectedSics.size <= 100) {
     natEmpBase = allLas.reduce((s,la) => s + getSelectedEmp(la, baseYear), 0);
     natEmp24 = allLas.reduce((s,la) => s + getSelectedEmp(la, latestYear), 0);
     natGrowth = natEmpBase ? ((natEmp24/natEmpBase-1)*100).toFixed(1) : '—';
@@ -970,7 +970,7 @@ function renderOverview() {
 
   // GVA % of London economy and UK sector — skip if too many codes (perf)
   let gvaShareLondon = '—', gvaShareUk = '—';
-  if (selectedSics.size <= 100) {
+  if (allSectorsMode || selectedSics.size <= 100) {
     const londonLas = Object.keys(CORE.meta.la_regions).filter(la => CORE.meta.la_is_london[la]);
     const londonGva = londonLas.reduce((s,la) => s + getTotalEstGva(la, Math.min(latestYear,2023)), 0);
     const ukSectorGva = allLas.reduce((s,la) => s + getTotalEstGva(la, Math.min(latestYear,2023)), 0);
@@ -1190,7 +1190,7 @@ function renderBreakdownChart() {
     return;
   }
 
-  if (selectedSics.size === 0) {
+  if (selectedSics.size === 0 && !allSectorsMode) {
     container.innerHTML = '<div class="breakdown-empty">Select SIC codes to see breakdown</div>';
     return;
   }
@@ -1298,7 +1298,7 @@ function renderBreakdownChart() {
 
 
 function renderEmployment() {
-  if (!BRES || selectedSics.size === 0) return;
+  if (!BRES || (selectedSics.size === 0 && !allSectorsMode)) return;
   const bresYears = getBresYearRange();
   const latestYear = bresYears[bresYears.length - 1];
   const baseYear = bresYears[0];
@@ -1342,7 +1342,7 @@ function renderEmployment() {
 }
 
 function renderEmpTrendChart() {
-  if (!BRES) return;
+  if (!BRES || (selectedSics.size === 0 && !allSectorsMode)) return;
   const bresYears = getBresYearRange();
   const baseYear = bresYears[0];
   let datasets = [], labels = bresYears;
