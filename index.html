@@ -982,16 +982,18 @@ function renderOverview() {
 
   // Is GVA direct or estimated for this selection?
   const selectedCats = [...new Set(Array.from(selectedSics).map(c => getParentCat(c)).filter(Boolean))];
-  const isDirectGva = selectedSics.size > 0 && selectedCats.length === 1 && 
+  const isDirectGva = allSectorsMode || (selectedSics.size > 0 && selectedCats.length === 1 && 
     Array.from(selectedSics).every(c => getParentCat(c) === selectedCats[0]) &&
-    getGva(primaryLa, selectedCats[0], Math.min(latestYear,2023)) !== null;
+    getGva(primaryLa, selectedCats[0], Math.min(latestYear,2023)) !== null);
 
   const gvaBadge = isDirectGva 
     ? '<span class="gva-direct-badge">Published ONS</span>'
     : '<span class="gva-est-badge">Estimated</span>';
 
   const bressrc = 'Source: ONS Business Register and Employment Survey (BRES) via Nomis, open access. Year: ' + latestYear + '. Figures subject to disclosure rounding.';
-  const gvasrc = isDirectGva 
+  const gvasrc = allSectorsMode
+    ? `Source: ONS Regional gross value added (balanced) by industry: local authorities. Published ONS Total GVA for all sectors.`
+    : isDirectGva 
     ? `Source: ONS Regional gross value added (balanced) by industry: local authorities, Table 3 (current prices). Published ONS GVA for this sector grouping.`
     : `Source: ONS Regional GVA, Table 3. Estimated using employment-share method: each 5-digit code's share of its parent SIC category's employment is applied to the parent category's published GVA. Indicative only.`;
 
@@ -1403,9 +1405,9 @@ function renderGva() {
 
   // Determine if GVA is direct or estimated
   const selCats = [...new Set(Array.from(selectedSics).map(c => getParentCat(c)).filter(Boolean))];
-  const isDirect = selectedSics.size > 0 && selCats.length === 1 
+  const isDirect = allSectorsMode || (selectedSics.size > 0 && selCats.length === 1 
     && Array.from(selectedSics).every(c => getParentCat(c) === selCats[0])
-    && getGva(primaryLa, selCats[0], latestGvaYear) !== null;
+    && getGva(primaryLa, selCats[0], latestGvaYear) !== null);
   const badge = isDirect ? '<span class="gva-direct-badge">Published ONS</span>' : '<span class="gva-est-badge">Estimated</span>';
   const gvaNote = isDirect 
     ? `Published ONS Regional GVA (balanced) by industry, local authorities, Table 3 (current prices).`
