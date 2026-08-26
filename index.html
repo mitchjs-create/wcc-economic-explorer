@@ -1039,7 +1039,7 @@ function renderOverview() {
   }));
   mkChart('overviewEmpChart', { type: 'line', data: { labels: bresYears, datasets },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: true, position: onlyPrimary ? 'left' : 'top', labels: { font: { size: 10 }, boxWidth: 12 } } },
+      plugins: { legend: { display: true, position: 'top', align: 'start', labels: { font: { size: 10 }, boxWidth: 12 } } },
       scales: baseScales }
   });
 
@@ -1053,7 +1053,7 @@ function renderOverview() {
   }));
   mkChart('overviewGvaChart', { type: 'line', data: { labels: gvaYears, datasets: gvaSets },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: true, position: onlyPrimary ? 'left' : 'top', labels: { font: { size: 10 }, boxWidth: 12 } } },
+      plugins: { legend: { display: true, position: 'top', align: 'start', labels: { font: { size: 10 }, boxWidth: 12 } } },
       scales: gvaScales() }
   });
 
@@ -1148,6 +1148,9 @@ function renderBreakdownChart() {
   if (!container) return;
   if (!BRES) return;
 
+  // Define geoFilter once for both paths
+  const geoFilter = document.getElementById('breakdownArea') ? document.getElementById('breakdownArea').value : 'uk';
+
   // Fast path: all sectors mode uses precomputed section data
   if (allSectorsMode) {
     const bresYearsAll = getBresYearRange();
@@ -1158,7 +1161,6 @@ function renderBreakdownChart() {
     let rowData = Object.entries(secs).map(([sec, laData]) => {
       const wmEmp = laData[primaryLa] ? (laData[primaryLa][idx] || 0) : 0;
       const allEntries = Object.entries(laData).map(([la, vals]) => [la, vals[idx]||0]).sort((a,b)=>b[1]-a[1]);
-      const geoFilter = document.getElementById('breakdownArea') ? document.getElementById('breakdownArea').value : 'uk';
       const filteredForPct = geoFilter === 'london' ? allEntries.filter(([la]) => CORE.meta.la_is_london[la])
                            : geoFilter === 'inner'  ? allEntries.filter(([la]) => CORE.meta.la_is_inner[la])
                            : allEntries;
@@ -1384,7 +1386,7 @@ function renderEmpTrendChart() {
   const singleArea = compLas.length === 0;
   mkChart('empTrendChart', { type: 'line', data: { labels, datasets },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: true, position: singleArea ? 'left' : 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
+      plugins: { legend: { display: true, position: 'top', align: 'start', labels: { font: { size: 10 }, boxWidth: 10 } } },
       scales: empMode==='compare' ? pctScales() : baseScales }
   });
 }
