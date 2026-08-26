@@ -1190,7 +1190,7 @@ function renderBreakdownChart() {
       const leaderW = leaderEmp ? Math.max(0,(leaderEmp-wmEmp)/maxEmp*100).toFixed(1) : 0;
       const rankClass = rank===1?'rank-1':rank===2?'rank-2':'rank-other';
       const rankLabel = rank===1?'#1 in UK':rank===2?'#2 in UK':rank<=5?`#${rank} in UK`:`${rank}th in UK`;
-      out2 += `<div class="sector-row"><div><div class="sec-name">${desc}</div><div class="sec-sic">Section ${key}</div></div><div class="bar-area"><div class="bar-track"><div class="bar-wm" style="width:${wmW}%"><span class="bar-wm-label">${fmtK(wmEmp)}</span></div>${leaderName?`<div class="bar-leader" style="width:${leaderW}%"></div>`:''}</div>${leaderName?`<div class="bar-sub">${fmtK(leaderEmp)} ${leaderName}</div>`:''}</div><div><span class="rank-badge ${rankClass}">${rankLabel}</span></div><div><span class="pct-val">${pct}%</span><span class="pct-sub">of ${geoFilter2==='inner'?'Inner London':geoFilter2==='london'?'London':'UK'} total</span></div></div>`;
+      out2 += `<div class="sector-row"><div><div class="sec-name">${desc}</div><div class="sec-sic">Section ${key}</div></div><div class="bar-area"><div class="bar-track"><div class="bar-wm" style="width:${wmW}%"><span class="bar-wm-label">${fmtK(wmEmp)}</span></div>${leaderName?`<div class="bar-leader" style="width:${leaderW}%"></div>`:''}</div>${leaderName?`<div class="bar-sub">${fmtK(leaderEmp)} ${leaderName}</div>`:''}</div><div><span class="rank-badge ${rankClass}">${rankLabel}</span></div><div><span class="pct-val">${pct}%</span><span class="pct-sub">of ${geoFilter==='inner'?'Inner London':geoFilter==='london'?'London':'UK'} total</span></div></div>`;
     });
     container.innerHTML = out2;
     return;
