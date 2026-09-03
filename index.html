@@ -1239,7 +1239,10 @@ function renderBreakdownChart() {
     const allLaEmp = getAllLaAggForKey(key, latestYear);
     const sorted = Object.entries(allLaEmp).sort((a,b) => b[1]-a[1]);
     const rank = sorted.findIndex(([la]) => la === primaryLa) + 1 || sorted.length + 1;
-    const total = sorted.reduce((s,[,v]) => s+v, 0);
+    const filteredForPct = geoFilter === 'london' ? sorted.filter(([la]) => CORE.meta.la_is_london[la])
+                         : geoFilter === 'inner'  ? sorted.filter(([la]) => CORE.meta.la_is_inner[la])
+                         : sorted;
+    const total = filteredForPct.reduce((s,[,v]) => s+v, 0);
     const pct = total ? (wmEmp/total*100).toFixed(1) : '0.0';
     const topEntry = sorted[0];
     const isTop = topEntry && topEntry[0] === primaryLa;
