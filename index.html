@@ -1175,38 +1175,114 @@ function selectDivisionPreset(name, divPrefixes) {
 
 function shortSicLabel(code) {
   const desc = CORE.bres_meta.sic_desc[code] || code;
+  const dl = desc.toLowerCase();
+  const known = [
+    [/venture and development capital/i, 'Venture Capital'],
+    [/open-ended investment compan/i, 'Open-ended Investment'],
+    [/real estate investment trust/i, 'REITs'],
+    [/property unit trust/i, 'Property Unit Trusts'],
+    [/investment trust/i, 'Investment Trusts'],
+    [/mortgage finance/i, 'Mortgage Finance'],
+    [/administration of financial market/i, 'Financial Markets Admin'],
+    [/security and commodity contract/i, 'Commodity Brokers'],
+    [/financial services holding/i, 'Financial Services Holding'],
+    [/construction holding/i, 'Construction Holding'],
+    [/distribution holding/i, 'Distribution Holding'],
+    [/production holding/i, 'Production Holding'],
+    [/agricultural holding/i, 'Agricultural Holding'],
+    [/other holding compan/i, 'Other Holding Cos'],
+    [/auxiliary to financial service/i, 'Auxiliary Financial'],
+    [/auxiliary to insurance/i, 'Auxiliary Insurance'],
+    [/credit granting by non-deposit/i, 'Credit (non-deposit)'],
+    [/other credit granting/i, 'Other Credit'],
+    [/security dealing on own account/i, 'Proprietary Trading'],
+    [/life reinsurance/i, 'Life Reinsurance'],
+    [/non-life reinsurance/i, 'Non-life Reinsurance'],
+    [/life insurance/i, 'Life Insurance'],
+    [/non-life insurance/i, 'Non-life Insurance'],
+    [/pension funding/i, 'Pension Funding'],
+    [/risk and damage evaluation/i, 'Risk & Damage Eval'],
+    [/insurance agents and broker/i, 'Insurance Brokers'],
+    [/financial leasing/i, 'Financial Leasing'],
+    [/management of financial market/i, 'Financial Markets Mgmt'],
+    [/central banking/i, 'Central Banking'],
+    [/building societies/i, 'Building Societies'],
+    [/fund management/i, 'Fund Management'],
+    [/factoring/i, 'Factoring'],
+    [/biotechnology/i, 'Biotechnology R&D'],
+    [/natural sciences/i, 'Natural Sciences R&D'],
+    [/barrister/i, 'Barristers'],
+    [/other legal/i, 'Other Legal'],
+    [/bookkeeping/i, 'Bookkeeping'],
+    [/management consultanc/i, 'Management Consulting'],
+    [/public relation/i, 'PR & Communications'],
+    [/technical testing/i, 'Technical Testing'],
+    [/architectural/i, 'Architecture'],
+    [/urban planning/i, 'Urban Planning'],
+    [/engineering design.*industrial/i, 'Engineering Design'],
+    [/engineering.*scientific.*consulting/i, 'Engineering Consulting'],
+    [/other engineering/i, 'Other Engineering'],
+    [/environmental consulting/i, 'Environmental Consulting'],
+    [/quantity survey/i, 'Quantity Surveying'],
+    [/specialised design/i, 'Specialised Design'],
+    [/photographic/i, 'Photography'],
+    [/translation/i, 'Translation'],
+    [/performing art/i, 'Performing Arts'],
+    [/operation.*arts facilit/i, 'Arts Facilities'],
+    [/artistic creation/i, 'Artistic Creation'],
+    [/library/i, 'Libraries'],
+    [/museum/i, 'Museums'],
+    [/motion picture|film.*tv|tv.*production/i, 'Film & TV Production'],
+    [/sound recording|music publishing/i, 'Music & Recording'],
+    [/programming and broadcasting/i, 'Broadcasting'],
+    [/computer programming/i, 'Computer Programming'],
+    [/computer consultanc/i, 'IT Consultancy'],
+    [/computer facilit/i, 'IT Facilities Mgmt'],
+    [/other information technology/i, 'Other IT Services'],
+    [/data processing/i, 'Data Processing'],
+    [/web portal/i, 'Web Portals'],
+    [/wired telecommunication/i, 'Wired Telecoms'],
+    [/wireless telecommunication/i, 'Wireless Telecoms'],
+    [/satellite telecommunication/i, 'Satellite Telecoms'],
+    [/other telecommunication/i, 'Other Telecoms'],
+    [/head office/i, 'Head Offices'],
+    [/security system/i, 'Security Systems'],
+    [/combined facilit/i, 'Facilities Mgmt'],
+    [/general cleaning/i, 'Building Cleaning'],
+    [/window cleaning/i, 'Window Cleaning'],
+    [/landscape/i, 'Landscaping'],
+    [/transmission.*electricity/i, 'Electricity Transmission'],
+    [/distribution.*electricity/i, 'Electricity Distribution'],
+    [/production.*electricity|electricity.*supply/i, 'Electricity Supply'],
+    [/gas.*supply|steam.*supply/i, 'Gas & Steam Supply'],
+    [/water collection/i, 'Water Supply'],
+    [/pharmaceutical preparations/i, 'Pharma Preparations'],
+    [/basic pharmaceutical/i, 'Basic Pharma'],
+    [/medical.*instrument/i, 'Medical Instruments'],
+    [/electromedical/i, 'Electromedical Equip'],
+    [/wholesale.*pharmaceutical/i, 'Pharma Wholesale'],
+    [/construction.*buildings/i, 'Building Construction'],
+    [/civil engineering/i, 'Civil Engineering'],
+    [/electrical installation/i, 'Electrical Install'],
+    [/plumbing/i, 'Plumbing & Heating'],
+    [/real estate agenc/i, 'Estate Agencies'],
+    [/real estate.*fee/i, 'Real Estate Mgmt'],
+    [/cultural education/i, 'Cultural Education'],
+  ];
+  for (const [re, label] of known) { if (re.test(desc)) return label; }
   return desc
-    .replace(/^Manufacture of /i, 'Manufacture: ')
-    .replace(/^Manufacturing of /i, 'Manufacture: ')
-    .replace(/^Research and experimental development on /i, 'R&D: ')
     .replace(/^Activities of /i, '')
-    .replace(/^Development of /i, 'Dev: ')
-    .replace(/^Operation of /i, '')
-    .replace(/^Wholesale of /i, 'Wholesale: ')
-    .replace(/^Retail trade,? /i, 'Retail: ')
-    .replace(/\s*,?\s*not elsewhere classified/i, '')
-    .replace(/\s*\(not elsewhere classified\)/i, '')
-    .replace(/\s*n\.e\.c\.?/i, '')
-    .replace(/\s+and related articles?/i, '')
-    .replace(/\s+activities$/i, '')
-    .replace(/^Other\s+/i, 'Other ')
-    .trim()
-    .replace(/^(.{38}).+/, '$1…');
+    .replace(/^Manufacture of /i, 'Manuf: ')
+    .replace(/^Research and experimental development on /i, 'R&D: ')
+    .replace(/\s*(,?\s*not elsewhere classified|\(not elsewhere classified\)|n\.e\.c\.?)/gi, '')
+    .replace(/\s+activities?$/i, '').trim()
+    .replace(/^(.{30}).+/, '$1…');
 }
 
+
 function tinyLabel(code) {
-  const full = CORE.bres_meta.sic_desc[code] || code;
-  return full
-    .replace(/^Manufacture(?::\s*| of )/i, '')
-    .replace(/^Research(?::\s*| and experimental development on )/i, 'R&D: ')
-    .replace(/^Engineering\s+/i, 'Eng: ')
-    .replace(/^Other\s+/i, '')
-    .replace(/\s+activities?$/i, '')
-    .replace(/\s*(,?\s*not elsewhere classified|\(not elsewhere classified\)|n\.e\.c\.?)\s*/i, '')
-    .replace(/\s+and related.*/i, '')
-    .replace(/\s+and (management|installation|maintenance).*/i, '')
-    .trim()
-    .replace(/^(.{12}).+/, '$1…');
+  const s = shortSicLabel(code);
+  return s.replace(/^(.{16}).+/, '$1…');
 }
 
 function cycleBreakdownSort(col) {
@@ -1669,7 +1745,7 @@ function renderGrowth() {
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: true, position: 'top', align: 'start', labels: { font: { size: 10 }, boxWidth: 10 } },
         tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => `${ctx.dataset.label}: ${ctx.raw !== null ? (ctx.raw >= 0 ? '+' : '') + ctx.raw + '%' : 'base too small'}` } } },
-      scales: { ...pctScales(), x: { ...pctScales().x, ticks: { color: '#666', font: { size: 9 }, maxRotation: 90, minRotation: 90 } } } }
+      scales: { ...pctScales(), x: { ...pctScales().x, ticks: { color: '#666', font: { size: 9 }, maxRotation: 45, minRotation: 45 } } } }
   });
 
   // CAGR chart
@@ -1681,7 +1757,7 @@ function renderGrowth() {
     data: { labels: codes.map(c => shortSicLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3 }]},
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => ctx.raw !== null ? `CAGR: ${ctx.raw}%` : 'base too small (n<50)' } } },
-      scales: { ...makeScales('CAGR (%)', v => v+'%'), x: { ...makeScales('CAGR (%)', v => v+'%').x, ticks: { color: '#666', font: { size: 9 }, maxRotation: 90, minRotation: 90 } } } }
+      scales: { ...makeScales('CAGR (%)', v => v+'%'), x: { ...makeScales('CAGR (%)', v => v+'%').x, ticks: { color: '#666', font: { size: 9 }, maxRotation: 45, minRotation: 45 } } } }
   });
 
   // Growth rankings
