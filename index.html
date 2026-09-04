@@ -399,12 +399,12 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
       <div class="chart-card">
         <h3>Westminster vs National employment growth by code <span class="info-icon">i<span class="tooltip">% change in BRES employment for each selected SIC code, comparing Westminster to the national total across all local authorities. Areas with fewer than 50 employees at the base year are excluded from percentage growth calculations to avoid small-base distortion.</span></span></h3>
         <div class="chart-sub">% change in employment since base year, per code</div>
-        <div class="chart-wrap" style="height:650px"><canvas id="growthCompChart"></canvas></div>
+        <div class="chart-wrap" style="height:420px"><canvas id="growthCompChart"></canvas></div>
       </div>
       <div class="chart-card">
         <h3>CAGR by code</h3>
         <div class="chart-sub">Compound annual growth rate in employment, primary area</div>
-        <div class="chart-wrap" style="height:650px"><canvas id="growthCagrChart"></canvas></div>
+        <div class="chart-wrap" style="height:420px"><canvas id="growthCagrChart"></canvas></div>
       </div>
     </div>
     <div class="rank-table-wrap">
@@ -1764,7 +1764,7 @@ function renderGrowth() {
     return b && n > 0 ? +((((e/b)**(1/n))-1)*100).toFixed(2) : null;
   });
   mkChart('growthCagrChart', { type: 'bar',
-    data: { labels: codes.map(c => capLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3, barPercentage: 0.85, categoryPercentage: 0.8 }]},
+    data: { labels: codes.map(c => capLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3, barPercentage: 0.42, categoryPercentage: 0.8 }]},
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => ctx.raw !== null ? `CAGR: ${ctx.raw}%` : 'base too small (n<50)' } } },
       scales: { ...makeScales('CAGR (%)', v => v+'%'), x: { ...makeScales('CAGR (%)', v => v+'%').x, ticks: { color: '#444', font: { size: 11 }, maxRotation: 45, minRotation: 45 } } } }
