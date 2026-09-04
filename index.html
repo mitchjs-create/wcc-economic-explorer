@@ -1193,6 +1193,21 @@ function shortSicLabel(code) {
     .replace(/^(.{38}).+/, '$1…');
 }
 
+function tinyLabel(code) {
+  const full = CORE.bres_meta.sic_desc[code] || code;
+  return full
+    .replace(/^Manufacture(?::\s*| of )/i, '')
+    .replace(/^Research(?::\s*| and experimental development on )/i, 'R&D: ')
+    .replace(/^Engineering\s+/i, 'Eng: ')
+    .replace(/^Other\s+/i, '')
+    .replace(/\s+activities?$/i, '')
+    .replace(/\s*(,?\s*not elsewhere classified|\(not elsewhere classified\)|n\.e\.c\.?)\s*/i, '')
+    .replace(/\s+and related.*/i, '')
+    .replace(/\s+and (management|installation|maintenance).*/i, '')
+    .trim()
+    .replace(/^(.{14}).+/, '$1…');
+}
+
 function cycleBreakdownSort(col) {
   if (col === 'rank') {
     if (breakdownSort === 'rank-asc') breakdownSort = 'rank-desc';
@@ -1641,11 +1656,11 @@ function renderGrowth() {
   `;
 
   mkChart('growthCompChart', { type: 'bar',
-    data: { labels: codes.map(c => shortSicLabel(c)), datasets: [
+    data: { labels: codes.map(c => tinyLabel(c)), datasets: [
       { label: primaryLa, data: wGrowths, backgroundColor: codes.map((_,i) => wGrowths[i] === null ? '#ccc' : wGrowths[i] >= 0 ? PALETTE[0] : '#e74c3c'), borderRadius: 3 },
       { label: 'National', data: natGrowths, backgroundColor: '#ccc', borderRadius: 3 }
     ]},
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10 } }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[ctx[0].label] || ctx[0].label, label: ctx => `${ctx.dataset.label}: ${ctx.raw !== null ? (ctx.raw >= 0 ? '+' : '') + ctx.raw + '%' : 'base <50'}` } } }, scales: pctScales() }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top', align: 'start', labels: { font: { size: 10 }, boxWidth: 10 } }, tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => `${ctx.dataset.label}: ${ctx.raw !== null ? (ctx.raw >= 0 ? '+' : '') + ctx.raw + '%' : 'base too small (n<50)'}` } } }, scales: { ...pctScales(), x: { ...pctScales().x, ticks: { ...pctScales().x.ticks, maxRotation: 0, autoSkip: false, font: { size: 9 } } } } }
   });
 
   // CAGR chart
@@ -1654,8 +1669,8 @@ function renderGrowth() {
     return b && n > 0 ? +((((e/b)**(1/n))-1)*100).toFixed(2) : null;
   });
   mkChart('growthCagrChart', { type: 'bar',
-    data: { labels: codes.map(c => shortSicLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3 }]},
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[ctx[0].label] || ctx[0].label, label: ctx => ctx.raw !== null ? `CAGR: ${ctx.raw}%` : 'base <50' } } }, scales: { ...baseScales, y: { ...baseScales.y, ticks: { ...baseScales.y.ticks, callback: v => v + '%' } } } }
+    data: { labels: codes.map(c => tinyLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3 }]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => ctx.raw !== null ? `CAGR: ${ctx.raw}%` : 'base too small (n<50)' } } }, scales: { ...makeScales('CAGR (%)', v => v+'%'), x: { ...makeScales('CAGR (%)', v => v+'%').x, ticks: { ...makeScales('CAGR (%)', v => v+'%').x.ticks, maxRotation: 0, autoSkip: false, font: { size: 9 } } } } }
   });
 
   // Growth rankings
