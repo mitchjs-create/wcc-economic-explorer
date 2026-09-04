@@ -1205,7 +1205,7 @@ function tinyLabel(code) {
     .replace(/\s+and related.*/i, '')
     .replace(/\s+and (management|installation|maintenance).*/i, '')
     .trim()
-    .replace(/^(.{14}).+/, '$1…');
+    .replace(/^(.{12}).+/, '$1…');
 }
 
 function cycleBreakdownSort(col) {
@@ -1660,11 +1660,10 @@ function renderGrowth() {
       { label: primaryLa, data: wGrowths, backgroundColor: codes.map((_,i) => wGrowths[i] === null ? '#ccc' : wGrowths[i] >= 0 ? PALETTE[0] : '#e74c3c'), borderRadius: 3 },
       { label: 'National', data: natGrowths, backgroundColor: '#ccc', borderRadius: 3 }
     ]},
-    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+    options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: true, position: 'top', align: 'start', labels: { font: { size: 10 }, boxWidth: 10 } },
         tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => `${ctx.dataset.label}: ${ctx.raw !== null ? (ctx.raw >= 0 ? '+' : '') + ctx.raw + '%' : 'base too small'}` } } },
-      scales: { x: { ticks: { color: '#666', font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#eee' }, border: { color: '#ccc' }, title: { display: true, text: '% change', color: '#666', font: { size: 10 } } },
-               y: { ticks: { color: '#444', font: { size: 10 } }, grid: { display: false }, border: { color: '#ccc' } } } }
+      scales: { ...pctScales(), x: { ...pctScales().x, ticks: { color: '#666', font: { size: 9 }, maxRotation: 90, minRotation: 90 } } } }
   });
 
   // CAGR chart
@@ -1674,10 +1673,9 @@ function renderGrowth() {
   });
   mkChart('growthCagrChart', { type: 'bar',
     data: { labels: codes.map(c => shortSicLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3 }]},
-    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+    options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => ctx.raw !== null ? `CAGR: ${ctx.raw}%` : 'base too small (n<50)' } } },
-      scales: { x: { ticks: { color: '#666', font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#eee' }, border: { color: '#ccc' }, title: { display: true, text: 'CAGR (%)', color: '#666', font: { size: 10 } } },
-               y: { ticks: { color: '#444', font: { size: 10 } }, grid: { display: false }, border: { color: '#ccc' } } } }
+      scales: { ...makeScales('CAGR (%)', v => v+'%'), x: { ...makeScales('CAGR (%)', v => v+'%').x, ticks: { color: '#666', font: { size: 9 }, maxRotation: 90, minRotation: 90 } } } }
   });
 
   // Growth rankings
