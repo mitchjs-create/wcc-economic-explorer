@@ -1170,6 +1170,27 @@ function selectDivisionPreset(name, divPrefixes) {
   updateAll();
 }
 
+function shortSicLabel(code) {
+  const desc = CORE.bres_meta.sic_desc[code] || code;
+  return desc
+    .replace(/^Manufacture of /i, 'Mfg: ')
+    .replace(/^Manufacturing of /i, 'Mfg: ')
+    .replace(/^Research and experimental development on /i, 'R&D: ')
+    .replace(/^Activities of /i, '')
+    .replace(/^Development of /i, 'Dev: ')
+    .replace(/^Operation of /i, '')
+    .replace(/^Wholesale of /i, 'Wholesale: ')
+    .replace(/^Retail trade,? /i, 'Retail: ')
+    .replace(/\s*,?\s*not elsewhere classified/i, '')
+    .replace(/\s*\(not elsewhere classified\)/i, '')
+    .replace(/\s*n\.e\.c\.?/i, '')
+    .replace(/\s+and related articles?/i, '')
+    .replace(/\s+activities$/i, '')
+    .replace(/^Other\s+/i, 'Other ')
+    .trim()
+    .replace(/^(.{38}).+/, '$1…');
+}
+
 function cycleBreakdownSort(col) {
   if (col === 'rank') {
     if (breakdownSort === 'rank-asc') breakdownSort = 'rank-desc';
@@ -1372,10 +1393,10 @@ function renderEmployment() {
   const codes = Array.from(selectedSics);
   const codeDescs = codes.map(c => CORE.bres_meta.sic_desc[c] || c);
   mkChart('empBreakdownChart', { type: 'bar',
-    data: { labels: codes.map(c => c), datasets: [{ label: primaryLa, data: codes.map(c => getEmp(primaryLa, c, latestYear)), backgroundColor: PALETTE[0], borderRadius: 3 },
+    data: { labels: codes.map(c => shortSicLabel(c)), datasets: [{ label: primaryLa, data: codes.map(c => getEmp(primaryLa, c, latestYear)), backgroundColor: PALETTE[0], borderRadius: 3 },
       ...compLas.map((la, i) => ({ label: la, data: codes.map(c => getEmp(la, c, latestYear)), backgroundColor: PALETTE[i+1], borderRadius: 3 }))
     ]},
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10 } }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[ctx[0].label] || ctx[0].label } } }, scales: baseScales }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10 } }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[Array.from(selectedSics).find(c => shortSicLabel(c)===ctx[0].label) || ctx[0].label] || ctx[0].label } } }, scales: baseScales }
   });
 
   // Share chart
@@ -1406,7 +1427,7 @@ function renderEmpTrendChart() {
   } else if (empMode === 'split') {
     const codes = Array.from(selectedSics);
     datasets = codes.map((c, i) => ({
-      label: `${c} — ${CORE.bres_meta.sic_desc[c]||c}`,
+      label: shortSicLabel(c),
       data: bresYears.map(y => getEmp(primaryLa, c, y)),
       borderColor: PALETTE[i % PALETTE.length], backgroundColor: 'transparent',
       borderWidth: 1.5, pointRadius: 2, tension: 0.3
@@ -1493,7 +1514,7 @@ function renderGvaStackChart() {
     const codes = Array.from(selectedSics);
     mkChart('gvaStackChart', { type: 'bar',
       data: { labels: gvaYears, datasets: codes.map((c, i) => ({
-        label: c,
+        label: shortSicLabel(c),
         data: gvaYears.map(y => { const v = estimateGva(primaryLa, c, y); return v ? +v.toFixed(1) : 0; }),
         backgroundColor: PALETTE[i % PALETTE.length], borderRadius: 2, stack: 'gva'
       }))},
@@ -1618,7 +1639,7 @@ function renderGrowth() {
   `;
 
   mkChart('growthCompChart', { type: 'bar',
-    data: { labels: codes, datasets: [
+    data: { labels: codes.map(c => shortSicLabel(c)), datasets: [
       { label: primaryLa, data: wGrowths, backgroundColor: codes.map((_,i) => wGrowths[i] === null ? '#ccc' : wGrowths[i] >= 0 ? PALETTE[0] : '#e74c3c'), borderRadius: 3 },
       { label: 'National', data: natGrowths, backgroundColor: '#ccc', borderRadius: 3 }
     ]},
@@ -1631,7 +1652,7 @@ function renderGrowth() {
     return b && n > 0 ? +((((e/b)**(1/n))-1)*100).toFixed(2) : null;
   });
   mkChart('growthCagrChart', { type: 'bar',
-    data: { labels: codes, datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3 }]},
+    data: { labels: codes.map(c => shortSicLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3 }]},
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[ctx[0].label] || ctx[0].label, label: ctx => ctx.raw !== null ? `CAGR: ${ctx.raw}%` : 'base <50' } } }, scales: { ...baseScales, y: { ...baseScales.y, ticks: { ...baseScales.y.ticks, callback: v => v + '%' } } } }
   });
 
