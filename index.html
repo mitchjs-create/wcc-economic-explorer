@@ -1173,8 +1173,8 @@ function selectDivisionPreset(name, divPrefixes) {
 function shortSicLabel(code) {
   const desc = CORE.bres_meta.sic_desc[code] || code;
   return desc
-    .replace(/^Manufacture of /i, 'Mfg: ')
-    .replace(/^Manufacturing of /i, 'Mfg: ')
+    .replace(/^Manufacture of /i, 'Manufacture: ')
+    .replace(/^Manufacturing of /i, 'Manufacture: ')
     .replace(/^Research and experimental development on /i, 'R&D: ')
     .replace(/^Activities of /i, '')
     .replace(/^Development of /i, 'Dev: ')
