@@ -355,12 +355,13 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
           <button class="chart-tab" onclick="setGvaMode('compare')">Compare areas</button>
         </div>
         <div class="legend" id="gvaLegend"></div>
-        <div class="chart-wrap" style="height:260px"><canvas id="gvaStackChart"></canvas></div>
+        <div class="chart-wrap" style="height:340px"><canvas id="gvaStackChart"></canvas></div>
       </div>
       <div class="chart-card">
         <h3>GVA by parent category <span class="gva-direct-badge">Published ONS</span></h3>
         <div class="chart-sub">Direct published ONS GVA (balanced) for the broad category that contains your selected codes · current prices £m</div>
-        <div class="chart-wrap" style="height:260px"><canvas id="gvaParentChart"></canvas></div>
+        <div class="chart-wrap" style="height:340px"><canvas id="gvaParentChart"></canvas></div>
+        <div id="gvaParentLegend" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:11px;color:var(--grey-600)"></div>
       </div>
     </div>
   </div>
@@ -1512,14 +1513,19 @@ function renderGva() {
   // Parent category GVA (direct)
   const gvaYears = getGvaYearRange();
   const parentCats = [...new Set(Array.from(selectedSics).map(c => getParentCat(c)).filter(Boolean))];
+  const parentDatasets = parentCats.map((cat, i) => ({
+    label: CORE.gva.categories[cat] || cat,
+    data: gvaYears.map(y => { const v = getGva(primaryLa, cat, y); return v !== null ? +v.toFixed(1) : 0; }),
+    backgroundColor: PALETTE[i], borderRadius: 2, stack: 'parent'
+  }));
   mkChart('gvaParentChart', { type: 'bar',
-    data: { labels: gvaYears, datasets: parentCats.map((cat, i) => ({
-      label: CORE.gva.categories[cat] || cat,
-      data: gvaYears.map(y => { const v = getGva(primaryLa, cat, y); return v !== null ? +v.toFixed(1) : 0; }),
-      backgroundColor: PALETTE[i], borderRadius: 2, stack: 'parent'
-    }))},
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 9 }, boxWidth: 10 } } }, scales: { x: gvaScales().x, y: { ...gvaScales().y, stacked: true } } }
+    data: { labels: gvaYears, datasets: parentDatasets },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: gvaScales().x, y: { ...gvaScales().y, stacked: true } } }
   });
+  const legEl = document.getElementById('gvaParentLegend');
+  if (legEl) legEl.innerHTML = parentDatasets.map((ds,i) =>
+    `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${PALETTE[i]};flex-shrink:0;display:inline-block"></span>${ds.label}</span>`
+  ).join('');
 }
 
 function renderGvaStackChart() {
