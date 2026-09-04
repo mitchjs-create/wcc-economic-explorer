@@ -1523,7 +1523,7 @@ function renderGvaStackChart() {
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[ctx[0].dataset.label] || ctx[0].dataset.label } } }, scales: { x: gvaScales().x, y: { ...gvaScales().y, stacked: true } } }
     });
     document.getElementById('gvaLegend').innerHTML = codes.map((c,i) =>
-      `<span class="leg-item"><span class="leg-dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${c}</span>`).join('');
+      `<span class="leg-item"><span class="leg-dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${shortSicLabel(c)}</span>`).join('');
   } else {
     const areas = [primaryLa, ...compLas];
     mkChart('gvaStackChart', { type: 'line',
