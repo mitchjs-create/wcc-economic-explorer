@@ -1282,7 +1282,13 @@ function shortSicLabel(code) {
 
 function tinyLabel(code) {
   const s = shortSicLabel(code);
-  return s.replace(/^(.{16}).+/, '$1…');
+  const c = s.charAt(0).toUpperCase() + s.slice(1);
+  return c.replace(/^(.{16}).+/, '$1…');
+}
+
+function capLabel(code) {
+  const s = shortSicLabel(code);
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function cycleBreakdownSort(col) {
@@ -1487,10 +1493,10 @@ function renderEmployment() {
   const codes = Array.from(selectedSics);
   const codeDescs = codes.map(c => CORE.bres_meta.sic_desc[c] || c);
   mkChart('empBreakdownChart', { type: 'bar',
-    data: { labels: codes.map(c => shortSicLabel(c)), datasets: [{ label: primaryLa, data: codes.map(c => getEmp(primaryLa, c, latestYear)), backgroundColor: PALETTE[0], borderRadius: 3 },
+    data: { labels: codes.map(c => capLabel(c)), datasets: [{ label: primaryLa, data: codes.map(c => getEmp(primaryLa, c, latestYear)), backgroundColor: PALETTE[0], borderRadius: 3 },
       ...compLas.map((la, i) => ({ label: la, data: codes.map(c => getEmp(la, c, latestYear)), backgroundColor: PALETTE[i+1], borderRadius: 3 }))
     ]},
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10 } }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[Array.from(selectedSics).find(c => shortSicLabel(c)===ctx[0].label) || ctx[0].label] || ctx[0].label } } }, scales: baseScales }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top', align: 'start', labels: { font: { size: 10 }, boxWidth: 10 } }, tooltip: { callbacks: { title: ctx => { const code = Array.from(selectedSics)[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => `${ctx.dataset.label}: ${ctx.raw.toLocaleString()} jobs` } } }, scales: { ...baseScales, x: { ...baseScales.x, ticks: { ...baseScales.x.ticks, maxRotation: 45, minRotation: 45, font: { size: 11 } } } } }
   });
 
   // Share chart
@@ -1521,7 +1527,7 @@ function renderEmpTrendChart() {
   } else if (empMode === 'split') {
     const codes = Array.from(selectedSics);
     datasets = codes.map((c, i) => ({
-      label: shortSicLabel(c),
+      label: capLabel(c),
       data: bresYears.map(y => getEmp(primaryLa, c, y)),
       borderColor: PALETTE[i % PALETTE.length], backgroundColor: 'transparent',
       borderWidth: 1.5, pointRadius: 2, tension: 0.3
@@ -1600,7 +1606,7 @@ function renderGva() {
   });
   const legEl = document.getElementById('gvaParentLegend');
   if (legEl) legEl.innerHTML = parentDatasets.map((ds,i) =>
-    `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${PALETTE[i]};flex-shrink:0;display:inline-block"></span>${ds.label}</span>`
+    `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${PALETTE[i]};flex-shrink:0;display:inline-block"></span>${ds.label.charAt(0).toUpperCase()+ds.label.slice(1)}</span>`
   ).join('');
 }
 
@@ -1613,14 +1619,14 @@ function renderGvaStackChart() {
     const codes = Array.from(selectedSics);
     mkChart('gvaStackChart', { type: 'bar',
       data: { labels: gvaYears, datasets: codes.map((c, i) => ({
-        label: shortSicLabel(c),
+        label: capLabel(c),
         data: gvaYears.map(y => { const v = estimateGva(primaryLa, c, y); return v ? +v.toFixed(1) : 0; }),
         backgroundColor: PALETTE[i % PALETTE.length], borderRadius: 2, stack: 'gva'
       }))},
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => CORE.bres_meta.sic_desc[ctx[0].dataset.label] || ctx[0].dataset.label } } }, scales: { x: gvaScales().x, y: { ...gvaScales().y, stacked: true } } }
     });
     document.getElementById('gvaLegend').innerHTML = codes.map((c,i) =>
-      `<span class="leg-item"><span class="leg-dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${shortSicLabel(c)}</span>`).join('');
+      `<span class="leg-item"><span class="leg-dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${capLabel(c)}</span>`).join('');
   } else {
     const areas = [primaryLa, ...compLas];
     mkChart('gvaStackChart', { type: 'line',
@@ -1738,7 +1744,7 @@ function renderGrowth() {
   `;
 
   mkChart('growthCompChart', { type: 'bar',
-    data: { labels: codes.map(c => shortSicLabel(c)), datasets: [
+    data: { labels: codes.map(c => capLabel(c)), datasets: [
       { label: primaryLa, data: wGrowths, backgroundColor: codes.map((_,i) => wGrowths[i] === null ? '#ccc' : wGrowths[i] >= 0 ? PALETTE[0] : '#e74c3c'), borderRadius: 3, barPercentage: 0.85, categoryPercentage: 0.8 },
       { label: 'National', data: natGrowths, backgroundColor: '#ccc', borderRadius: 3, barPercentage: 0.85, categoryPercentage: 0.8 }
     ]},
@@ -1754,7 +1760,7 @@ function renderGrowth() {
     return b && n > 0 ? +((((e/b)**(1/n))-1)*100).toFixed(2) : null;
   });
   mkChart('growthCagrChart', { type: 'bar',
-    data: { labels: codes.map(c => shortSicLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3, barPercentage: 0.85, categoryPercentage: 0.8 }]},
+    data: { labels: codes.map(c => capLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3, barPercentage: 0.85, categoryPercentage: 0.8 }]},
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => ctx.raw !== null ? `CAGR: ${ctx.raw}%` : 'base too small (n<50)' } } },
       scales: { ...makeScales('CAGR (%)', v => v+'%'), x: { ...makeScales('CAGR (%)', v => v+'%').x, ticks: { color: '#444', font: { size: 11 }, maxRotation: 45, minRotation: 45 } } } }
