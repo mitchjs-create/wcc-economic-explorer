@@ -558,7 +558,11 @@ function buildSicTree() {
   btnHtml += `<div style="width:100%;height:1px;background:var(--grey-200);margin:4px 0"></div>
     <button onclick="clearSic()" style="color:#c0392b;border-color:#c0392b">✕ Clear all</button>
     <div style="width:100%;margin:8px 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--grey-600)">Custom sector definitions</div>
-    <button onclick="selectPreset('lifesciences')" data-preset="lifesciences">★ Life sciences</button>`;
+    <button onclick="selectPreset('lifesciences')" data-preset="lifesciences">★ Life sciences</button>
+    <button onclick="selectDivisionPreset('builtenvironment',['23','35','36','37','41','42','43','68','71','81'])" data-preset="builtenvironment">★ Built Environment</button>
+    <button onclick="selectDivisionPreset('builtenvironmentnore',['23','35','36','37','41','42','43','71','81'])" data-preset="builtenvironmentnore">★ Built Environment (Excl. Real Estate)</button>
+    <button onclick="selectDivisionPreset('creative',['3212','58','59','60','6201','6202','7021','7111','731','741','742','743','8552','90','9101','9102'])" data-preset="creative">★ Creative Industries</button>`;
+  
   quickEl.innerHTML = btnHtml;
 }
 
@@ -1132,6 +1136,40 @@ function selectAllSectors() {
   });
 }
 
+function selectDivisionPreset(name, divPrefixes) {
+  allSectorsMode = false;
+  activePreset = name;
+  selectedSics.clear();
+
+  divPrefixes.forEach(prefix => {
+    if (HIER.codes_by_div[prefix]) {
+      // Exact division match
+      HIER.codes_by_div[prefix].forEach(c => selectedSics.add(c.code));
+    } else {
+      // Match by prefix (groups, classes)
+      Object.values(HIER.codes_by_div).forEach(codes => {
+        codes.forEach(c => { if (c.code.startsWith(prefix)) selectedSics.add(c.code); });
+      });
+    }
+  });
+
+  // Open relevant divisions in tree
+  selectedSics.forEach(code => {
+    const div2 = code.slice(0,2);
+    const children = document.getElementById(`children_${div2}`);
+    if (children && !children.classList.contains('open')) {
+      children.classList.add('open');
+      const toggle = children.previousElementSibling.querySelector('.div-toggle');
+      if (toggle) toggle.textContent = '▼';
+    }
+  });
+
+  syncCheckboxes();
+  updatePresetButtons();
+  updateSicSummary();
+  updateAll();
+}
+
 function cycleBreakdownSort(col) {
   if (col === 'rank') {
     if (breakdownSort === 'rank-asc') breakdownSort = 'rank-desc';
@@ -1239,10 +1277,7 @@ function renderBreakdownChart() {
     const allLaEmp = getAllLaAggForKey(key, latestYear);
     const sorted = Object.entries(allLaEmp).sort((a,b) => b[1]-a[1]);
     const rank = sorted.findIndex(([la]) => la === primaryLa) + 1 || sorted.length + 1;
-    const filteredForPct = geoFilter === 'london' ? sorted.filter(([la]) => CORE.meta.la_is_london[la])
-                         : geoFilter === 'inner'  ? sorted.filter(([la]) => CORE.meta.la_is_inner[la])
-                         : sorted;
-    const total = filteredForPct.reduce((s,[,v]) => s+v, 0);
+    const total = sorted.reduce((s,[,v]) => s+v, 0);
     const pct = total ? (wmEmp/total*100).toFixed(1) : '0.0';
     const topEntry = sorted[0];
     const isTop = topEntry && topEntry[0] === primaryLa;
