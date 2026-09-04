@@ -1739,8 +1739,8 @@ function renderGrowth() {
 
   mkChart('growthCompChart', { type: 'bar',
     data: { labels: codes.map(c => shortSicLabel(c)), datasets: [
-      { label: primaryLa, data: wGrowths, backgroundColor: codes.map((_,i) => wGrowths[i] === null ? '#ccc' : wGrowths[i] >= 0 ? PALETTE[0] : '#e74c3c'), borderRadius: 3 },
-      { label: 'National', data: natGrowths, backgroundColor: '#ccc', borderRadius: 3 }
+      { label: primaryLa, data: wGrowths, backgroundColor: codes.map((_,i) => wGrowths[i] === null ? '#ccc' : wGrowths[i] >= 0 ? PALETTE[0] : '#e74c3c'), borderRadius: 3, barPercentage: 0.85, categoryPercentage: 0.8 },
+      { label: 'National', data: natGrowths, backgroundColor: '#ccc', borderRadius: 3, barPercentage: 0.85, categoryPercentage: 0.8 }
     ]},
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: true, position: 'top', align: 'start', labels: { font: { size: 10 }, boxWidth: 10 } },
@@ -1754,7 +1754,7 @@ function renderGrowth() {
     return b && n > 0 ? +((((e/b)**(1/n))-1)*100).toFixed(2) : null;
   });
   mkChart('growthCagrChart', { type: 'bar',
-    data: { labels: codes.map(c => shortSicLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3 }]},
+    data: { labels: codes.map(c => shortSicLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3, barPercentage: 0.85, categoryPercentage: 0.8 }]},
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => ctx.raw !== null ? `CAGR: ${ctx.raw}%` : 'base too small (n<50)' } } },
       scales: { ...makeScales('CAGR (%)', v => v+'%'), x: { ...makeScales('CAGR (%)', v => v+'%').x, ticks: { color: '#444', font: { size: 11 }, maxRotation: 45, minRotation: 45 } } } }
