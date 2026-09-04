@@ -355,12 +355,12 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
           <button class="chart-tab" onclick="setGvaMode('compare')">Compare areas</button>
         </div>
         <div class="legend" id="gvaLegend"></div>
-        <div class="chart-wrap" style="height:340px"><canvas id="gvaStackChart"></canvas></div>
+        <div class="chart-wrap" style="height:260px"><canvas id="gvaStackChart"></canvas></div>
       </div>
-      <div class="chart-card">
+      <div class="chart-card" style="display:flex;flex-direction:column">
         <h3>GVA by parent category <span class="gva-direct-badge">Published ONS</span></h3>
         <div class="chart-sub">Direct published ONS GVA (balanced) for the broad category that contains your selected codes · current prices £m</div>
-        <div class="chart-wrap" style="height:340px"><canvas id="gvaParentChart"></canvas></div>
+        <div class="chart-wrap" style="flex:1;min-height:200px"><canvas id="gvaParentChart"></canvas></div>
         <div id="gvaParentLegend" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:11px;color:var(--grey-600)"></div>
       </div>
     </div>
