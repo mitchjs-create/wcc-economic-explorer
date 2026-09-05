@@ -542,7 +542,7 @@ function buildSicTree() {
           ${codes.map(c => `
             <div class="sic-item" id="sic_item_${c.code}">
               <input type="checkbox" id="sic_${c.code}" value="${c.code}" onchange="toggleSic('${c.code}')">
-              <label for="sic_${c.code}" title="${c.code}: ${c.desc}"><span>${c.code}</span> ${c.desc}</label>
+              <label for="sic_${c.code}"><span>${c.code}</span> ${c.desc}</label>
             </div>`).join('')}
         </div>
       </div>`;
