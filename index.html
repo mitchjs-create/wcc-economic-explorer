@@ -542,7 +542,7 @@ function buildSicTree() {
           ${codes.map(c => `
             <div class="sic-item" id="sic_item_${c.code}">
               <input type="checkbox" id="sic_${c.code}" value="${c.code}" onchange="toggleSic('${c.code}')">
-              <label for="sic_${c.code}"><span>${c.code}</span> ${c.desc}</label>
+              <label for="sic_${c.code}" title="${c.code}: ${c.desc}"><span>${c.code}</span> ${c.desc}</label>
             </div>`).join('')}
         </div>
       </div>`;
@@ -1294,6 +1294,46 @@ function capLabel(code) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+
+function addLabelHover(chartId, codes) {
+  const canvas = document.getElementById(chartId);
+  if (!canvas) return;
+  canvas.addEventListener('mousemove', e => {
+    const chart = charts[chartId];
+    if (!chart || !chart.scales.x) return;
+    const scale = chart.scales.x;
+    const rect = canvas.getBoundingClientRect();
+    const mouseY = e.clientY - rect.top;
+    const mouseX = e.clientX - rect.left;
+    // Only trigger in label zone (below chart area)
+    if (mouseY < scale.bottom || mouseY > rect.height) { hideLabelTip(); return; }
+    let minDist = Infinity, closestIdx = -1;
+    scale.ticks.forEach((tick, i) => {
+      const px = scale.getPixelForTick(i);
+      const dist = Math.abs(mouseX - px);
+      if (dist < minDist) { minDist = dist; closestIdx = i; }
+    });
+    if (closestIdx >= 0 && minDist < 35 && codes[closestIdx]) {
+      const code = codes[closestIdx];
+      const full = CORE.bres_meta.sic_desc[code] || code;
+      const tip = document.getElementById('presetTooltip');
+      tip.innerHTML = `<strong>${code}</strong><br>${full}`;
+      tip.style.display = 'block';
+      const tx = Math.min(e.clientX + 12, window.innerWidth - 270);
+      const ty = Math.max(e.clientY - 50, 8);
+      tip.style.left = tx + 'px';
+      tip.style.top = ty + 'px';
+    } else {
+      hideLabelTip();
+    }
+  });
+  canvas.addEventListener('mouseleave', hideLabelTip);
+}
+function hideLabelTip() {
+  const tip = document.getElementById('presetTooltip');
+  if (!tip._presethover) tip.style.display = 'none';
+}
+
 function cycleBreakdownSort(col) {
   if (col === 'rank') {
     if (breakdownSort === 'rank-asc') breakdownSort = 'rank-desc';
@@ -1495,12 +1535,14 @@ function renderEmployment() {
   // Breakdown
   const codes = Array.from(selectedSics);
   const codeDescs = codes.map(c => CORE.bres_meta.sic_desc[c] || c);
+  const empBreakCodes = Array.from(selectedSics);
   mkChart('empBreakdownChart', { type: 'bar',
     data: { labels: codes.map(c => capLabel(c)), datasets: [{ label: primaryLa, data: codes.map(c => getEmp(primaryLa, c, latestYear)), backgroundColor: PALETTE[0], borderRadius: 3 },
       ...compLas.map((la, i) => ({ label: la, data: codes.map(c => getEmp(la, c, latestYear)), backgroundColor: PALETTE[i+1], borderRadius: 3 }))
     ]},
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top', align: 'start', labels: { font: { size: 10 }, boxWidth: 10 } }, tooltip: { callbacks: { title: ctx => { const code = Array.from(selectedSics)[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => `${ctx.dataset.label}: ${ctx.raw.toLocaleString()} jobs` } } }, scales: { ...baseScales, x: { ...baseScales.x, ticks: { ...baseScales.x.ticks, maxRotation: 45, minRotation: 45, font: { size: 11 } } } } }
   });
+  addLabelHover('empBreakdownChart', empBreakCodes);
 
   // Share chart
   mkChart('empShareChart', { type: 'line',
@@ -1607,6 +1649,8 @@ function renderGva() {
     data: { labels: gvaYears, datasets: parentDatasets },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: gvaScales().x, y: { ...gvaScales().y, stacked: true } } }
   });
+  const gvaCodes = Array.from(selectedSics);
+  addLabelHover('gvaStackChart', gvaCodes);
   const legEl = document.getElementById('gvaParentLegend');
   if (legEl) legEl.innerHTML = parentDatasets.map((ds,i) =>
     `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${PALETTE[i]};flex-shrink:0;display:inline-block"></span>${ds.label.charAt(0).toUpperCase()+ds.label.slice(1)}</span>`
@@ -1746,6 +1790,7 @@ function renderGrowth() {
     <div class="stat-card"><div class="label">Absolute change</div><div class="value">${wOverall ? (wEmpEnd-wOverall>=0?'+':'')+(wEmpEnd-wOverall).toLocaleString() : '-'}</div><div class="sub">Jobs added/lost ${baseYear}-${latestYear}</div></div>
   `;
 
+  const growthCodes = codes.slice();
   mkChart('growthCompChart', { type: 'bar',
     data: { labels: codes.map(c => capLabel(c)), datasets: [
       { label: primaryLa, data: wGrowths, backgroundColor: codes.map((_,i) => wGrowths[i] === null ? '#ccc' : wGrowths[i] >= 0 ? PALETTE[0] : '#e74c3c'), borderRadius: 3, barPercentage: 1.0, categoryPercentage: 0.95 },
@@ -1756,18 +1801,21 @@ function renderGrowth() {
         tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => `${ctx.dataset.label}: ${ctx.raw !== null ? (ctx.raw >= 0 ? '+' : '') + ctx.raw + '%' : 'base too small'}` } } },
       scales: { ...pctScales(), x: { ...pctScales().x, ticks: { color: '#444', font: { size: 11 }, maxRotation: 45, minRotation: 45 } } } }
   });
+  addLabelHover('growthCompChart', growthCodes);
 
   // CAGR chart
   const cagrs = codes.map(c => {
     const b = getEmp(primaryLa, c, baseYear), e = getEmp(primaryLa, c, latestYear);
     return b && n > 0 ? +((((e/b)**(1/n))-1)*100).toFixed(2) : null;
   });
+  const cagrCodes = codes.slice();
   mkChart('growthCagrChart', { type: 'bar',
     data: { labels: codes.map(c => capLabel(c)), datasets: [{ label: 'CAGR %', data: cagrs, backgroundColor: codes.map((_,i) => cagrs[i] === null ? '#ccc' : cagrs[i] >= 0 ? PALETTE[1] : '#e74c3c'), borderRadius: 3, barPercentage: 0.5, categoryPercentage: 0.95 }]},
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { title: ctx => { const code = codes[ctx[0].dataIndex]; return CORE.bres_meta.sic_desc[code] || code; }, label: ctx => ctx.raw !== null ? `CAGR: ${ctx.raw}%` : 'base too small (n<50)' } } },
       scales: { ...makeScales('CAGR (%)', v => v+'%'), x: { ...makeScales('CAGR (%)', v => v+'%').x, ticks: { color: '#444', font: { size: 11 }, maxRotation: 45, minRotation: 45 } } } }
   });
+  addLabelHover('growthCagrChart', cagrCodes);
 
   // Growth rankings
   const allLas = Object.keys(CORE.meta.la_regions);
