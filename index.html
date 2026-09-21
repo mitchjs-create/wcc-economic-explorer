@@ -305,7 +305,7 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
           </select>
 <label style="font-size:11px;color:var(--grey-600)">% of:</label>
           <select id="breakdownArea" onchange="renderBreakdownChart()" style="padding:4px 8px;border:1px solid var(--grey-300);border-radius:var(--radius);font-size:11px">
-            <option value="uk">UK total</option>
+            <option value="uk">Great Britain</option>
             <option value="london">London</option>
             <option value="inner">Inner London</option>
           </select>
@@ -419,7 +419,7 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
 // ============================================================
 //  STATE
 // ============================================================
-let CORE = null, BRES = null, HIER = null;
+let CORE = null, BRES = null, HIER = null, BRES_AGG = null;
 let primaryLa = 'Westminster';
 let compLas = [];
 let selectedSics = new Set();
@@ -462,6 +462,7 @@ async function loadData() {
     fetch('sic_hierarchy.json').then(r => r.json()),
   ]);
   CORE = core; BRES = bres; HIER = hier;
+  try { BRES_AGG = await fetch('data_bres_agg.json').then(r => r.json()); } catch (e) { BRES_AGG = null; }
   setLoading('Building interface...');
   init();
 }
@@ -761,7 +762,7 @@ function addCompArea(la = null) {
   div.className = 'comp-row';
   div.id = `comp_${id}`;
   const allLas = Object.keys(CORE.meta.la_regions).sort();
-  const regions = [...new Set(Object.values(CORE.meta.la_regions).map(r => r && r.trim()).filter(Boolean))].sort();
+  const regions = AGG_REGIONS;
   const defaultVal = la || 'Great Britain';
   const aggOpts = ['Great Britain','England','London','Inner London','Scotland','Wales'];
   const aggGroup = aggOpts.map(n => `<option value="${n}" ${n===defaultVal?'selected':''} style="background:#e8f0fe;font-weight:600">${n}</option>`).join('');
@@ -863,26 +864,22 @@ function setGvaMode(m) {
 // ============================================================
 
 // ── Aggregate geographies ────────────────────────────────────────────────────
-function getAggLas(areaName) {
-  const regions = CORE.meta.la_regions;
-  if (areaName === 'Great Britain') return Object.keys(regions);
-  if (areaName === 'England') return Object.keys(regions).filter(la => regions[la] && !['Scotland ','Wales '].some(r => regions[la].trim()===r.trim()));
-  if (areaName === 'Scotland') return Object.keys(regions).filter(la => regions[la] && regions[la].trim()==='Scotland');
-  if (areaName === 'Wales') return Object.keys(regions).filter(la => regions[la] && regions[la].trim()==='Wales');
-  if (areaName === 'London') return Object.keys(regions).filter(la => CORE.meta.la_is_london[la]);
-  if (areaName === 'Inner London') return Object.keys(regions).filter(la => CORE.meta.la_is_inner[la]);
-  // Region name
-  return Object.keys(regions).filter(la => regions[la] && regions[la].trim() === areaName.trim());
-}
-
-const AGG_NAMES = new Set(['Great Britain','England','Scotland','Wales','London','Inner London']);
-function isAgg(la) {
-  return AGG_NAMES.has(la) || (CORE && CORE.meta && Object.values(CORE.meta.la_regions).some(r => r && r.trim()===la));
-}
+// Published BRES aggregates (Nomis) are used for GB, countries and regions.
+// Inner London has no published total, so it is summed from its boroughs.
+const AGG_REGIONS = ['North East','North West','Yorkshire and The Humber','East Midlands','West Midlands','East','South East','South West'];
+const AGG_NAMES = new Set(['Great Britain','England','Wales','Scotland','London','Inner London',...AGG_REGIONS]);
+function isAgg(la) { return AGG_NAMES.has(la); }
+function hasPublishedAgg(la) { return !!(BRES_AGG && BRES_AGG.geos.includes(la)); }
+function innerLondonLas() { return Object.keys(CORE.meta.la_is_inner).filter(la => CORE.meta.la_is_inner[la]); }
 
 function getEmpAgg(la, sic, year) {
-  const las = getAggLas(la);
-  return las.reduce((s, l) => s + (getEmpRaw(l, sic, year) || 0), 0);
+  const idx = BRES_YEARS.indexOf(year);
+  if (hasPublishedAgg(la)) {
+    const d = BRES_AGG.codes[sic];
+    return d && d[la] && idx >= 0 ? (d[la][idx] || 0) : 0;
+  }
+  if (la === 'Inner London') return innerLondonLas().reduce((s, l) => s + getEmpRaw(l, sic, year), 0);
+  return 0;
 }
 
 function getEmpRaw(la, sic, year) {
@@ -892,15 +889,24 @@ function getEmpRaw(la, sic, year) {
   return idx >= 0 ? (d[la][idx] || 0) : 0;
 }
 
+function getEmp(la, sic, year) {
+  if (isAgg(la)) return getEmpAgg(la, sic, year);
+  return getEmpRaw(la, sic, year);
+}
+
 function getTotalEmp(la, year) {
+  if (hasPublishedAgg(la)) return BRES_AGG.totals[la][String(year)] || 0;
+  if (la === 'Inner London') return innerLondonLas().reduce((s, l) => s + getTotalEmp(l, year), 0);
   const d = CORE.bres_meta.totals[la];
   return d ? (d[String(year)] || 0) : 0;
 }
 
 function getSectionEmp(la, year) {
   // Fast path: use precomputed section totals
-  const secs = CORE.bres_meta.sections;
   const idx = BRES_YEARS.indexOf(Math.min(year, 2024));
+  if (hasPublishedAgg(la)) return Object.values(BRES_AGG.sections).reduce((s, g) => s + (g[la] ? (g[la][idx] || 0) : 0), 0);
+  if (la === 'Inner London') return innerLondonLas().reduce((s, l) => s + getSectionEmp(l, year), 0);
+  const secs = CORE.bres_meta.sections;
   return Object.values(secs).reduce((s, laData) => {
     return s + (laData[la] ? (laData[la][idx] || 0) : 0);
   }, 0);
@@ -1437,7 +1443,9 @@ function renderBreakdownChart() {
       const filteredForPct = geoFilter === 'london' ? allEntries.filter(([la]) => CORE.meta.la_is_london[la])
                            : geoFilter === 'inner'  ? allEntries.filter(([la]) => CORE.meta.la_is_inner[la])
                            : allEntries;
-      const total = filteredForPct.reduce((s,[,v])=>s+v,0);
+      const pubGeo = geoFilter === 'london' ? 'London' : geoFilter === 'uk' ? 'Great Britain' : null;
+      const pubSec = pubGeo && BRES_AGG && BRES_AGG.sections[sec] ? BRES_AGG.sections[sec][pubGeo] : null;
+      const total = pubSec ? (pubSec[idx] || 0) : filteredForPct.reduce((s,[,v])=>s+v,0);
       const rank = allEntries.findIndex(([la])=>la===primaryLa)+1 || allEntries.length+1;
       const pct = total ? (wmEmp/total*100).toFixed(1) : '0.0';
       const topEntry = allEntries[0];
@@ -1458,14 +1466,14 @@ function renderBreakdownChart() {
     const pctActive2 = breakdownSort.startsWith('pct')?'color:var(--magenta)':'';
 
     let out2 = `<div class="breakdown-legend"><span><span class="leg-swatch" style="background:var(--magenta)"></span>${primaryLa}</span><span><span class="leg-swatch" style="background:#BBBBBB"></span>Leading comparator LA</span></div>
-    <div class="sector-row-header"><div>Sector</div><div>Employment (${latestYearAll})</div><div onclick="cycleBreakdownSort('rank')" style="cursor:pointer;user-select:none;${rankActive2}">UK rank${rankSortIcon2}</div><div onclick="cycleBreakdownSort('pct')" style="cursor:pointer;user-select:none;${pctActive2}">% of UK${pctSortIcon2}</div></div>`;
+    <div class="sector-row-header"><div>Sector</div><div>Employment (${latestYearAll})</div><div onclick="cycleBreakdownSort('rank')" style="cursor:pointer;user-select:none;${rankActive2}">UK rank${rankSortIcon2}</div><div onclick="cycleBreakdownSort('pct')" style="cursor:pointer;user-select:none;${pctActive2}">% of GB${pctSortIcon2}</div></div>`;
     rowData.forEach(({ key, wmEmp, rank, pct, leaderName, leaderEmp, desc }) => {
       const maxEmp = Math.max(wmEmp, leaderEmp||0)||1;
       const wmW = (wmEmp/maxEmp*100).toFixed(1);
       const leaderW = leaderEmp ? Math.max(0,(leaderEmp-wmEmp)/maxEmp*100).toFixed(1) : 0;
       const rankClass = rank===1?'rank-1':rank===2?'rank-2':'rank-other';
       const rankLabel = rank===1?'#1 in UK':rank===2?'#2 in UK':rank<=5?`#${rank} in UK`:`${rank}th in UK`;
-      out2 += `<div class="sector-row"><div><div class="sec-name">${desc}</div><div class="sec-sic">Section ${key}</div></div><div class="bar-area"><div class="bar-track"><div class="bar-wm" style="width:${wmW}%"><span class="bar-wm-label">${fmtK(wmEmp)}</span></div>${leaderName?`<div class="bar-leader" style="width:${leaderW}%"></div>`:''}</div>${leaderName?`<div class="bar-sub">${fmtK(leaderEmp)} ${leaderName}</div>`:''}</div><div><span class="rank-badge ${rankClass}">${rankLabel}</span></div><div><span class="pct-val">${pct}%</span><span class="pct-sub">of ${geoFilter==='inner'?'Inner London':geoFilter==='london'?'London':'UK'} total</span></div></div>`;
+      out2 += `<div class="sector-row"><div><div class="sec-name">${desc}</div><div class="sec-sic">Section ${key}</div></div><div class="bar-area"><div class="bar-track"><div class="bar-wm" style="width:${wmW}%"><span class="bar-wm-label">${fmtK(wmEmp)}</span></div>${leaderName?`<div class="bar-leader" style="width:${leaderW}%"></div>`:''}</div>${leaderName?`<div class="bar-sub">${fmtK(leaderEmp)} ${leaderName}</div>`:''}</div><div><span class="rank-badge ${rankClass}">${rankLabel}</span></div><div><span class="pct-val">${pct}%</span><span class="pct-sub">of ${geoFilter==='inner'?'Inner London':geoFilter==='london'?'London':'GB'} total</span></div></div>`;
     });
     container.innerHTML = out2;
     return;
@@ -1510,7 +1518,16 @@ function renderBreakdownChart() {
     const allLaEmp = getAllLaAggForKey(key, latestYear);
     const sorted = Object.entries(allLaEmp).sort((a,b) => b[1]-a[1]);
     const rank = sorted.findIndex(([la]) => la === primaryLa) + 1 || sorted.length + 1;
-    const total = sorted.reduce((s,[,v]) => s+v, 0);
+    const pubGeo = geoFilter === 'london' ? 'London' : geoFilter === 'uk' ? 'Great Britain' : null;
+    let total;
+    if (pubGeo && BRES_AGG) {
+      total = aggregateEmpToLevel(pubGeo, latestYear, level)[key] || 0;
+    } else {
+      const filteredForPct = geoFilter === 'london' ? sorted.filter(([la]) => CORE.meta.la_is_london[la])
+                           : geoFilter === 'inner'  ? sorted.filter(([la]) => CORE.meta.la_is_inner[la])
+                           : sorted;
+      total = filteredForPct.reduce((s,[,v]) => s+v, 0);
+    }
     const pct = total ? (wmEmp/total*100).toFixed(1) : '0.0';
     const topEntry = sorted[0];
     const isTop = topEntry && topEntry[0] === primaryLa;
@@ -1541,7 +1558,7 @@ function renderBreakdownChart() {
       <div>Sector</div>
       <div>Employment (${latestYear})</div>
       <div onclick="cycleBreakdownSort('rank')" style="cursor:pointer;user-select:none;${rankActive}">UK rank${rankSortIcon}</div>
-      <div onclick="cycleBreakdownSort('pct')" style="cursor:pointer;user-select:none;${pctActive}">% of ${(document.getElementById('breakdownArea')||{value:'uk'}).value === 'inner' ? 'Inner London' : (document.getElementById('breakdownArea')||{value:'uk'}).value === 'london' ? 'London' : 'UK'}${pctSortIcon}</div>
+      <div onclick="cycleBreakdownSort('pct')" style="cursor:pointer;user-select:none;${pctActive}">% of ${(document.getElementById('breakdownArea')||{value:'uk'}).value === 'inner' ? 'Inner London' : (document.getElementById('breakdownArea')||{value:'uk'}).value === 'london' ? 'London' : 'GB'}${pctSortIcon}</div>
     </div>`;
 
   rowData.forEach(({ key, wmEmp, rank, pct, leaderName, leaderEmp, desc, nLas }) => {
@@ -1569,7 +1586,7 @@ function renderBreakdownChart() {
         <div><span class="rank-badge ${rankClass}">${rankLabel}</span></div>
         <div>
           <span class="pct-val">${pct}%</span>
-          <span class="pct-sub">of ${geoFilter==='inner'?'Inner London':geoFilter==='london'?'London':'UK'} total</span>
+          <span class="pct-sub">of ${geoFilter==='inner'?'Inner London':geoFilter==='london'?'London':'GB'} total</span>
         </div>
       </div>`;
   });
