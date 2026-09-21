@@ -761,10 +761,17 @@ function addCompArea(la = null) {
   div.className = 'comp-row';
   div.id = `comp_${id}`;
   const allLas = Object.keys(CORE.meta.la_regions).sort();
-  const defaultVal = la || allLas[0];
+  const regions = [...new Set(Object.values(CORE.meta.la_regions).map(r => r && r.trim()).filter(Boolean))].sort();
+  const defaultVal = la || 'Great Britain';
+  const aggOpts = ['Great Britain','England','London','Inner London','Scotland','Wales'];
+  const aggGroup = aggOpts.map(n => `<option value="${n}" ${n===defaultVal?'selected':''} style="background:#e8f0fe;font-weight:600">${n}</option>`).join('');
+  const regGroup = regions.filter(r => !aggOpts.includes(r)).map(r => `<option value="${r}" ${r===defaultVal?'selected':''} style="background:#f0f4f0;font-style:italic">${r}</option>`).join('');
+  const laGroup = allLas.map(l => `<option value="${l}" ${l===defaultVal?'selected':''}>${l}</option>`).join('');
   div.innerHTML = `
     <select onchange="updateComp()">
-      ${allLas.map(l => `<option value="${l}" ${l==defaultVal?'selected':''}>${l}</option>`).join('')}
+      <optgroup label="--- Aggregates ---">${aggGroup}</optgroup>
+      <optgroup label="--- Regions ---">${regGroup}</optgroup>
+      <optgroup label="--- Local Authorities ---">${laGroup}</optgroup>
     </select>
     <button onclick="removeComp('comp_${id}')">✕</button>`;
   document.getElementById('compAreas').appendChild(div);
@@ -854,7 +861,31 @@ function setGvaMode(m) {
 // ============================================================
 //  DATA ACCESS
 // ============================================================
-function getEmp(la, sic, year) {
+
+// ── Aggregate geographies ────────────────────────────────────────────────────
+function getAggLas(areaName) {
+  const regions = CORE.meta.la_regions;
+  if (areaName === 'Great Britain') return Object.keys(regions);
+  if (areaName === 'England') return Object.keys(regions).filter(la => regions[la] && !['Scotland ','Wales '].some(r => regions[la].trim()===r.trim()));
+  if (areaName === 'Scotland') return Object.keys(regions).filter(la => regions[la] && regions[la].trim()==='Scotland');
+  if (areaName === 'Wales') return Object.keys(regions).filter(la => regions[la] && regions[la].trim()==='Wales');
+  if (areaName === 'London') return Object.keys(regions).filter(la => CORE.meta.la_is_london[la]);
+  if (areaName === 'Inner London') return Object.keys(regions).filter(la => CORE.meta.la_is_inner[la]);
+  // Region name
+  return Object.keys(regions).filter(la => regions[la] && regions[la].trim() === areaName.trim());
+}
+
+const AGG_NAMES = new Set(['Great Britain','England','Scotland','Wales','London','Inner London']);
+function isAgg(la) {
+  return AGG_NAMES.has(la) || (CORE && CORE.meta && Object.values(CORE.meta.la_regions).some(r => r && r.trim()===la));
+}
+
+function getEmpAgg(la, sic, year) {
+  const las = getAggLas(la);
+  return las.reduce((s, l) => s + (getEmpRaw(l, sic, year) || 0), 0);
+}
+
+function getEmpRaw(la, sic, year) {
   const d = BRES[sic];
   if (!d || !d[la]) return 0;
   const idx = BRES_YEARS.indexOf(year);
