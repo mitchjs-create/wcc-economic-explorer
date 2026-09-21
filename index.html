@@ -928,23 +928,28 @@ function getGva(la, sicCat, year) {
   return idx >= 0 ? cats[la][idx] : null;
 }
 
-function getParentCat(sic5) {
+function getParentCat(sic5, la) {
+  // Aggregate geographies use the most granular published ITL category; LAs use the LA category
+  if (la && isAgg(la) && GVA_AGG && GVA_AGG.geo_level[la]) {
+    const m = GVA_AGG.parent[GVA_AGG.geo_level[la]];
+    if (m && m[sic5]) return m[sic5];
+  }
   return CORE.bres_meta.sic_to_gva[sic5] || null;
 }
 
 function getParentCatEmpDenominator(la, parentCat, year) {
-  // Sum all 5-digit codes in BRES that map to this GVA parent category
+  // Sum all 5-digit codes in BRES that map to this GVA parent category at this geography
   let total = 0;
-  Object.entries(CORE.bres_meta.sic_to_gva).forEach(([code, cat]) => {
-    if (cat === parentCat) total += getEmp(la, code, year);
+  Object.keys(CORE.bres_meta.sic_to_gva).forEach(code => {
+    if (getParentCat(code, la) === parentCat) total += getEmp(la, code, year);
   });
   return total;
 }
 
 function estimateGva(la, sic5, year) {
-  // year must be in GVA range (2000-2023)
+  // year must be in GVA range (2000-2023); employment year matches GVA year
   if (year > 2023 || year < 2000) return null;
-  const cat = getParentCat(sic5);
+  const cat = getParentCat(sic5, la);
   if (!cat) return null;
   const parentGva = getGva(la, cat, year);
   if (parentGva === null) return null;
