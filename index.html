@@ -419,7 +419,7 @@ body{font-family:var(--font);background:var(--grey-100);color:var(--grey-800);fo
 // ============================================================
 //  STATE
 // ============================================================
-let CORE = null, BRES = null, HIER = null, BRES_AGG = null;
+let CORE = null, BRES = null, HIER = null, BRES_AGG = null, GVA_AGG = null;
 let primaryLa = 'Westminster';
 let compLas = [];
 let selectedSics = new Set();
@@ -463,6 +463,7 @@ async function loadData() {
   ]);
   CORE = core; BRES = bres; HIER = hier;
   try { BRES_AGG = await fetch('data_bres_agg.json').then(r => r.json()); } catch (e) { BRES_AGG = null; }
+  try { GVA_AGG = await fetch('data_gva_agg.json').then(r => r.json()); } catch (e) { GVA_AGG = null; }
   setLoading('Building interface...');
   init();
 }
@@ -762,15 +763,14 @@ function addCompArea(la = null) {
   div.className = 'comp-row';
   div.id = `comp_${id}`;
   const allLas = Object.keys(CORE.meta.la_regions).sort();
-  const regions = AGG_REGIONS;
   const defaultVal = la || 'Great Britain';
-  const aggOpts = ['Great Britain','England','London','Inner London','Scotland','Wales'];
-  const aggGroup = aggOpts.map(n => `<option value="${n}" ${n===defaultVal?'selected':''} style="background:#e8f0fe;font-weight:600">${n}</option>`).join('');
-  const regGroup = regions.filter(r => !aggOpts.includes(r)).map(r => `<option value="${r}" ${r===defaultVal?'selected':''} style="background:#f0f4f0;font-style:italic">${r}</option>`).join('');
+  const regions = ['North East','North West','Yorkshire and The Humber','East Midlands','West Midlands','East','London','Inner London','South East','South West','Wales','Scotland'];
+  const aggGroup = `<option value="Great Britain" ${defaultVal==='Great Britain'?'selected':''} style="background:#e8f0fe;font-weight:600">Great Britain</option>`;
+  const regGroup = regions.map(r => `<option value="${r}" ${r===defaultVal?'selected':''} style="background:#f0f4f0;font-style:italic">${r}</option>`).join('');
   const laGroup = allLas.map(l => `<option value="${l}" ${l===defaultVal?'selected':''}>${l}</option>`).join('');
   div.innerHTML = `
     <select onchange="updateComp()">
-      <optgroup label="--- Aggregates ---">${aggGroup}</optgroup>
+      <optgroup label="--- National ---">${aggGroup}</optgroup>
       <optgroup label="--- Regions ---">${regGroup}</optgroup>
       <optgroup label="--- Local Authorities ---">${laGroup}</optgroup>
     </select>
@@ -917,6 +917,11 @@ function getSelectedEmp(la, year) {
 }
 
 function getGva(la, sicCat, year) {
+  if (isAgg(la)) {
+    const g = GVA_AGG && GVA_AGG.by_sic[sicCat] && GVA_AGG.by_sic[sicCat][la];
+    const i = GVA_AGG ? GVA_AGG.years.indexOf(year) : -1;
+    return g && i >= 0 ? g[i] : null;
+  }
   const cats = CORE.gva.by_sic[sicCat];
   if (!cats || !cats[la]) return null;
   const idx = GVA_YEARS_RANGE.indexOf(year);
