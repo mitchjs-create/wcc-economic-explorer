@@ -937,6 +937,17 @@ function getParentCat(sic5, la) {
   return CORE.bres_meta.sic_to_gva[sic5] || null;
 }
 
+// A selection is "direct" (published ONS, not an employment-share estimate) only when it
+// covers EVERY 5-digit code that rolls up to the parent category - not merely when every
+// selected code happens to share the same parent. Selecting e.g. a single code within a
+// published category still requires estimation for that code's own share of it.
+function isFullCategoryCoverage(selectedCodes, parentCat, la) {
+  if (!parentCat) return false;
+  const allCodesInCat = Object.keys(CORE.bres_meta.sic_desc).filter(c => getParentCat(c, la) === parentCat);
+  if (allCodesInCat.length === 0) return false;
+  return allCodesInCat.every(c => selectedCodes.has(c));
+}
+
 function getParentCatEmpDenominator(la, parentCat, year) {
   // Sum all 5-digit codes in BRES that map to this GVA parent category at this geography
   let total = 0;
@@ -1085,9 +1096,10 @@ function renderOverview() {
   }
 
   // Is GVA direct or estimated for this selection?
-  const selectedCats = [...new Set(Array.from(selectedSics).map(c => getParentCat(c)).filter(Boolean))];
-  const isDirectGva = allSectorsMode || (selectedSics.size > 0 && selectedCats.length === 1 && 
-    Array.from(selectedSics).every(c => getParentCat(c) === selectedCats[0]) &&
+  const selectedCats = [...new Set(Array.from(selectedSics).map(c => getParentCat(c, primaryLa)).filter(Boolean))];
+  const isDirectGva = allSectorsMode || (selectedSics.size > 0 && selectedCats.length === 1 &&
+    Array.from(selectedSics).every(c => getParentCat(c, primaryLa) === selectedCats[0]) &&
+    isFullCategoryCoverage(selectedSics, selectedCats[0], primaryLa) &&
     getGva(primaryLa, selectedCats[0], Math.min(latestYear,2024)) !== null);
 
   const gvaBadge = isDirectGva 
@@ -1716,9 +1728,10 @@ function renderGva() {
   const wGvaBase = getTotalEstGva(primaryLa, baseGvaYear);
 
   // Determine if GVA is direct or estimated
-  const selCats = [...new Set(Array.from(selectedSics).map(c => getParentCat(c)).filter(Boolean))];
-  const isDirect = allSectorsMode || (selectedSics.size > 0 && selCats.length === 1 
-    && Array.from(selectedSics).every(c => getParentCat(c) === selCats[0])
+  const selCats = [...new Set(Array.from(selectedSics).map(c => getParentCat(c, primaryLa)).filter(Boolean))];
+  const isDirect = allSectorsMode || (selectedSics.size > 0 && selCats.length === 1
+    && Array.from(selectedSics).every(c => getParentCat(c, primaryLa) === selCats[0])
+    && isFullCategoryCoverage(selectedSics, selCats[0], primaryLa)
     && getGva(primaryLa, selCats[0], latestGvaYear) !== null);
   const badge = isDirect ? '<span class="gva-direct-badge">Published ONS</span>' : '<span class="gva-est-badge">Estimated</span>';
   const gvaNote = isDirect 
